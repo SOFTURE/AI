@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { APP_ROOT, buildAppVars } from "../ansible/index.js";
-import { findRequiredNames, readRepositoryFile } from "../github/index.js";
+import { ENVIRONMENT, findRequiredNames, listVariableNames, readRepositoryFile } from "../github/index.js";
 import { findApp, loadInventory } from "../inventory/index.js";
 import { formatKnownHosts, generateDeployKey, getFingerprint, readHostKeys, type DeployKey } from "../ssh/index.js";
 import { checkOnboarding, readServerFacts } from "../survey/index.js";
@@ -48,9 +48,10 @@ export async function runAppAdd(args: string[], io: CliIo, deps: HostDeps): Prom
     return fail(`app add: stopped before any change:\n${preflight.problems.map((problem) => `- ${problem}`).join("\n")}`);
   }
 
-  const existing = await prepareEnvironment(io, deps, app.repo, check);
+  const environment = await prepareEnvironment(io, deps, app.repo, check);
+  const existing = environment.secrets;
   const deployScript = await readRepositoryFile(deps.runner, app.repo, DEPLOY_SCRIPT_PATH);
-  if (deployScript === null) return fail(`app add: ${app.repo} has no ${DEPLOY_SCRIPT_PATH}; run softure-deploy init in the app first`);
+  if (deployScript === null) return fail(`app add: ${app.repo} has no ${DEPLOY_SCRIPT_PATH}; in the app, run npm install --save-dev @softure-ai/deploy, then npx softure-deploy init`);
 
   const needsKey = flags["rotate-key"] || !existing.has("DEPLOY_SSH_KEY");
   // A dry run issues no key: the playbook's check mode is told one would be written.
@@ -82,8 +83,18 @@ export async function runAppAdd(args: string[], io: CliIo, deps: HostDeps): Prom
   await runCloudflareStep(io, deps, inventory, app, check);
 
   if (compose !== null) {
-    const missing = findRequiredNames(compose).filter((name) => !existing.has(name) && !plan.secrets.has(name));
-    say(io, "github", missing.length === 0 ? `every name ${COMPOSE_PATH} requires is set` : `still to set by hand (the app's own secrets): ${missing.join(", ")}`);
+    // The release renders .env.prod from secrets and variables alike, so a variable satisfies a name too (#1434).
+    const repositoryVariables = await listVariableNames(deps.runner, app.repo, "repository");
+    const isSet = (name: string): boolean =>
+      existing.has(name) || plan.secrets.has(name) || plan.variables.has(name) || environment.variables.has(name) || repositoryVariables.has(name);
+    const missing = findRequiredNames(compose).filter((name) => !isSet(name));
+    say(
+      io,
+      "github",
+      missing.length === 0
+        ? `every name ${COMPOSE_PATH} requires is set`
+        : `still to set by hand (a ${ENVIRONMENT} secret, or a repository variable for a value that is not secret): ${missing.join(", ")}`,
+    );
   }
   say(io, "app", check ? "check done; nothing was changed" : `done. Next: run ${app.repo}'s release workflow; its deploy.json verify checks the result`);
 }

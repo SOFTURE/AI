@@ -12,11 +12,24 @@ A server that already runs other apps (another Traefik, other names): read
 [Adding an app to a server that already runs apps](#adding-an-app-to-a-server-that-already-runs-apps) first.
 
 ```bash
-npx @softure-ai/host server --inventory=infra/inventory.yml --check
-npx @softure-ai/host server --inventory=infra/inventory.yml --connect-as=root   # first run on a fresh server
-npx @softure-ai/host app add --inventory=infra/inventory.yml --app=notes
-npx @softure-ai/host survey --inventory=infra/inventory.yml                     # read-only: what the server runs
+npx --yes @softure-ai/host@<version> server --inventory=infra/inventory.yml --check
+npx --yes @softure-ai/host@<version> server --inventory=infra/inventory.yml --connect-as=root   # first run on a fresh server
+npx --yes @softure-ai/host@<version> app add --inventory=infra/inventory.yml --app=notes
+npx --yes @softure-ai/host@<version> survey --inventory=infra/inventory.yml                     # read-only: what the server runs
 ```
+
+## Running the CLI
+
+The bin is `softure-host`. Run it from the operator's machine as the scoped package at a pinned version, from any
+folder:
+
+```bash
+npx --yes @softure-ai/host@<version> <command> [flags]
+```
+
+`npx softure-host …` finds the bin only inside a project that has `@softure-ai/host` installed; anywhere else npm
+looks up an unscoped package named `softure-host`, which is not this one. The commands below are written as
+`softure-host <command>` for short; the next step `server` prints is the full, pinned form.
 
 ## Requirements on the operator's machine
 
@@ -144,14 +157,17 @@ In order:
    `<slug> (softure-host)` for the host's `emails` and `<slug> bypass <path> (softure-host)` per bypass path,
    created or updated by name. Applications it did not create are never touched, and none is deleted: one the
    inventory no longer lists is reported.
-6. **What is left**: the names the app's `docker/prod/docker-compose.yml` requires that the Environment still lacks
-   (the app's own secrets, such as mail API keys), then the next step: run the app's release workflow.
+6. **What is left**: the names the app's `docker/prod/docker-compose.yml` requires that are set nowhere yet (the app's
+   own secrets, such as mail API keys), then the next step: run the app's release workflow. A name counts as set when
+   it is a `production` secret, a repository or `production` variable, or one `app add` has just written (such as
+   `APP_HOST`), since the release renders `.env.prod` from secrets and variables alike (issue #1434).
 
 A deploy key is issued (ed25519, made in memory) when the Environment has no `DEPLOY_SSH_KEY`, or with
 `--rotate-key`. Otherwise the server's line stays as it is; when the server has no line while GitHub holds a key,
 the run stops and asks for `--rotate-key`.
 
-The app must already have run `softure-deploy init` (it needs `docker/server/deploy.sh`).
+The app must already have run `softure-deploy init` (it needs `docker/server/deploy.sh`): in the app,
+`npm install --save-dev @softure-ai/deploy`, then `npx softure-deploy init …`.
 
 ## `softure-host survey`
 

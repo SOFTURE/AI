@@ -17,6 +17,17 @@ version, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../
   the step left. The README has a checklist, "Adding an app to a server that already runs apps".
   - Migrate: nothing. An `app add` that now stops names what to change in the inventory or the app.
 
+- `app add` no longer reports `APP_HOST` (or any variable it has just set, or a repository or `production` variable
+  that already exists) as still to set by hand (#1434). The line lists only names set nowhere and says each can be a
+  `production` secret or, for a value that is not secret, a repository variable.
+  - Migrate: nothing.
+
+- `server` prints its next step as `npx --yes @softure-ai/host@<this version> app add --inventory=<file> --app=<slug>`,
+  which runs from any folder, instead of the bare `softure-host app add --app=<slug>`; `app add` without
+  `docker/server/deploy.sh` says to install `@softure-ai/deploy` in the app and run `npx softure-deploy init` there.
+  The README gains "Running the CLI" and pins the version in every example (#1436).
+  - Migrate: nothing.
+
 - A deploy user with sudo rights is refused before anything changes (#1431). The inventory refuses
   `server.deployUser` equal to `server.adminUser`; `server` and `app add` first read the deploy user on the server and
   stop, in a real run and in `--check` alike, when it is in `sudo`, `wheel` or `admin` or has a sudoers entry, so the
