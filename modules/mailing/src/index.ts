@@ -29,6 +29,11 @@ export const mailing = defineModule({
         description: "API key of the resend() provider, read on every send; not needed with resend({ apiKey }) or another provider.",
       },
       {
+        name: "SOFTURE_EMAIL_KEY_SECRET",
+        required: false,
+        description: "Keys every recipient, at least 32 characters; required for list mail, the delivery ledger (deliverOnce, jobs), campaigns and imports; the same value as @softure-ai/privacy's. Never change it: a new value orphans every stored key.",
+      },
+      {
         name: "MAILING_UNSUBSCRIBE_SECRET",
         required: false,
         description: "Signs and verifies unsubscribe links, at least 32 characters; required to send list mail (any kind but transactional). Never change it without moving the old value to MAILING_UNSUBSCRIBE_SECRET_PREVIOUS.",

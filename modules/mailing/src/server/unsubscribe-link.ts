@@ -1,10 +1,10 @@
 // Signed unsubscribe links. Ported from FIRE_TRACKER `src/lib/unsubscribe-link.ts`, with two
-// changes: the link carries a hash of the address instead of a waitlist row id (the module has no
+// changes: the link carries the recipient key instead of a waitlist row id (the module has no
 // recipient table, and the address never appears in a URL), and a previous secret keeps verifying
 // during a rotation. The whole link is a credential: whoever has it can unsubscribe that address,
 // so it never reaches a log, an error or a result.
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import type { SoftureConfig } from "@softure-ai/core";
+import { createHmac, pbkdf2Sync, timingSafeEqual } from "node:crypto";
+import { memoizeByContent, SoftureConfigError, type SoftureConfig } from "@softure-ai/core";
 import { getMailingOptions, getMailingRoutes } from "./options.js";
 
 /** Signs every new link and verifies. */
@@ -50,12 +50,44 @@ export interface UnsubscribeSecrets {
 }
 
 /**
- * The stored and linked identity of an address: base64url SHA-256 of the trimmed, lowercased
- * address. Lowercasing the local part merges `Ada@` and `ada@`, which errs on the side of not
- * mailing someone who opted out.
+ * Keys every recipient (and, in `@softure-ai/privacy`, every email subject: the two keys of one address are equal).
+ * Required as soon as a key is computed: list mail, the delivery ledger, campaigns, unsubscribe links. Never rotate
+ * it: a new value orphans every stored key, and nothing stores the addresses to compute them again.
  */
-export function getRecipientKey(address: string): string {
-  return createHash("sha256").update(address.trim().toLowerCase()).digest("base64url");
+export const EMAIL_KEY_SECRET_ENV = "SOFTURE_EMAIL_KEY_SECRET";
+/** A shorter secret counts as missing: the secret is what keeps a key from being matched to a guessed address. */
+export const MIN_EMAIL_KEY_SECRET_LENGTH = 32;
+/** PBKDF2 rounds: about 2 ms per key. The secret is the protection; the rounds slow a search if it leaks. */
+export const EMAIL_KEY_ITERATIONS = 10_000;
+/** Domain separation in the salt, so no other use of the same secret derives the same bytes. */
+const EMAIL_KEY_SALT_PREFIX = "softure.email-key.v1:";
+
+/** A campaign or an import keys each address more than once; the cache pays the rounds once. */
+const deriveEmailKey = memoizeByContent(
+  (normalized: string, secret: string): string =>
+    pbkdf2Sync(normalized, `${EMAIL_KEY_SALT_PREFIX}${secret}`, EMAIL_KEY_ITERATIONS, 32, "sha256").toString("base64url"),
+  { max: 10_000 },
+);
+
+/** The email key secret from the environment; one shorter than 32 characters reads as not set. */
+export function readEmailKeySecret(env: Env = process.env): string | null {
+  return readSecret(env[EMAIL_KEY_SECRET_ENV], MIN_EMAIL_KEY_SECRET_LENGTH);
+}
+
+/**
+ * The stored and linked identity of an address: base64url PBKDF2-HMAC-SHA256 of the trimmed, lowercased address,
+ * keyed by `SOFTURE_EMAIL_KEY_SECRET` (43 characters). Without the secret nobody can tell which address a key
+ * belongs to, even with a list of candidates. Lowercasing the local part merges `Ada@` and `ada@`, which errs on the
+ * side of not mailing someone who opted out. Throws a `SoftureConfigError` when the secret is missing or short.
+ */
+export function getRecipientKey(address: string, env: Env = process.env): string {
+  const secret = readEmailKeySecret(env);
+  if (secret === null) {
+    throw new SoftureConfigError("the environment", [
+      `${EMAIL_KEY_SECRET_ENV}: required to key recipients, at least ${String(MIN_EMAIL_KEY_SECRET_LENGTH)} characters`,
+    ]);
+  }
+  return deriveEmailKey(address.trim().toLowerCase(), secret);
 }
 
 /** The signature of a recipient key. */
@@ -65,11 +97,14 @@ export function signRecipientKey(recipientKey: string, secret: string): string {
 
 /** The secrets from the environment; one shorter than 32 characters reads as not set. */
 export function readUnsubscribeSecrets(env: Env = process.env): UnsubscribeSecrets {
-  return { current: readSecret(env[UNSUBSCRIBE_SECRET_ENV]), previous: readSecret(env[UNSUBSCRIBE_PREVIOUS_SECRET_ENV]) };
+  return {
+    current: readSecret(env[UNSUBSCRIBE_SECRET_ENV], MIN_UNSUBSCRIBE_SECRET_LENGTH),
+    previous: readSecret(env[UNSUBSCRIBE_PREVIOUS_SECRET_ENV], MIN_UNSUBSCRIBE_SECRET_LENGTH),
+  };
 }
 
-function readSecret(value: string | undefined): string | null {
-  return value !== undefined && value.length >= MIN_UNSUBSCRIBE_SECRET_LENGTH ? value : null;
+function readSecret(value: string | undefined, minLength: number): string | null {
+  return value !== undefined && value.length >= minLength ? value : null;
 }
 
 /**
@@ -90,9 +125,9 @@ export function verifyUnsubscribeToken(token: UnsubscribeToken, secrets: Unsubsc
   return isValid;
 }
 
-/** The two links for `address`, on the app's origin and the module's routes. */
-export function buildUnsubscribeLinks(config: SoftureConfig, address: string, secret: string): UnsubscribeLinks {
-  const recipientKey = getRecipientKey(address);
+/** The two links for `address`, on the app's origin and the module's routes; `env` holds the email key secret. */
+export function buildUnsubscribeLinks(config: SoftureConfig, address: string, secret: string, env: Env = process.env): UnsubscribeLinks {
+  const recipientKey = getRecipientKey(address, env);
   const query = new URLSearchParams({ [RECIPIENT_PARAM]: recipientKey, [SIGNATURE_PARAM]: signRecipientKey(recipientKey, secret) });
   const routes = getMailingRoutes(config);
   return {

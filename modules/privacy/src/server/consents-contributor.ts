@@ -7,7 +7,8 @@ import type { Queryable } from "@softure-ai/db";
 import { asc, eq, or, type SQL } from "drizzle-orm";
 import type { ConsentRecord } from "../contract.js";
 import { consents } from "../schema.js";
-import { getEmailKey, toConsentRecord } from "./consents.js";
+import { toConsentRecord } from "./consents.js";
+import { getEmailKey } from "./email-key.js";
 
 /** What privacy holds about one user, as it appears in their export. */
 export interface PrivacyUserData {

@@ -12,7 +12,7 @@ const CAMPAIGN_DIR = fileURLToPath(new URL("./fixtures/campaign/", import.meta.u
 const HISTORY_DIR = fileURLToPath(new URL("./fixtures/history/", import.meta.url));
 const APP_DIR = fileURLToPath(new URL("./fixtures/app/", import.meta.url));
 const APP_WITHOUT_DATABASE_DIR = fileURLToPath(new URL("./fixtures/app-without-database/", import.meta.url));
-const ENV = { MAILING_UNSUBSCRIBE_SECRET: SECRET };
+const ENV = { MAILING_UNSUBSCRIBE_SECRET: SECRET, SOFTURE_EMAIL_KEY_SECRET: process.env.SOFTURE_EMAIL_KEY_SECRET };
 const SEND = ["campaign", "launch.md", "--recipients", "recipients.txt"];
 
 function createOutput(): { output: CliOutput; lines: string[]; errors: string[] } {
@@ -193,9 +193,18 @@ describe("softure-mail campaign", () => {
     expect(provider.sent).toEqual([]);
   });
 
+  it("refuses to plan or send without the email key secret, before opening the database", async () => {
+    const openDatabase = vi.fn();
+    for (const argv of [SEND, [...SEND, "--dry-run"]]) {
+      const result = await run(argv, { env: { MAILING_UNSUBSCRIBE_SECRET: SECRET }, openDatabase });
+      expect(result).toMatchObject({ code: 1, errors: ["softure-mail campaign: set SOFTURE_EMAIL_KEY_SECRET (at least 32 characters) to key the recipients"] });
+    }
+    expect(openDatabase).not.toHaveBeenCalled();
+  });
+
   it("refuses to send without the unsubscribe secret, before opening the database", async () => {
     const openDatabase = vi.fn();
-    const result = await run(SEND, { env: {}, openDatabase });
+    const result = await run(SEND, { env: { SOFTURE_EMAIL_KEY_SECRET: process.env.SOFTURE_EMAIL_KEY_SECRET }, openDatabase });
     expect(result).toMatchObject({ code: 1, errors: ["softure-mail campaign: campaigns are list mail; set MAILING_UNSUBSCRIBE_SECRET (at least 32 characters) to sign their unsubscribe links"] });
     expect(openDatabase).not.toHaveBeenCalled();
   });
@@ -400,7 +409,7 @@ describe("softure-mail campaign", () => {
     const placeholder = await run([...SEND, "--dry-run"]);
     expect(placeholder.lines).toContain("To: r********@example.com");
 
-    const noSecret = await run([...SEND, "--dry-run"], { env: {} });
+    const noSecret = await run([...SEND, "--dry-run"], { env: { SOFTURE_EMAIL_KEY_SECRET: process.env.SOFTURE_EMAIL_KEY_SECRET } });
     expect(noSecret).toMatchObject({ code: 0, errors: [] });
     expect(noSecret.lines.slice(2)).toEqual(["no preview: set MAILING_UNSUBSCRIBE_SECRET to render the unsubscribe footer"]);
   });

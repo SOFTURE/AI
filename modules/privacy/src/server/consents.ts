@@ -1,7 +1,6 @@
 // The consent ledger: recording a consent or its withdrawal, and reading the current state and the
 // history of a subject. Rows are only ever inserted (the table refuses UPDATE); the current state
 // of a purpose is its latest row.
-import { createHash } from "node:crypto";
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
 import { and, asc, desc, eq, type SQL } from "drizzle-orm";
 import { z } from "zod";
@@ -9,12 +8,13 @@ import type { ConsentRecord, ConsentState, ConsentSubject } from "../contract.js
 import { CONTRIBUTOR_ID_PATTERN } from "../options.js";
 import { consents } from "../schema.js";
 import type { PrivacyContext } from "./context.js";
+import { getEmailKey } from "./email-key.js";
 import { findLegalDocument, getDocumentVersionAt } from "./legal-documents.js";
 
 const MAX_NAME_LENGTH = 64;
 const MAX_EMAIL_LENGTH = 254;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-/** A SHA-256 digest in unpadded base64url, the shape of every stored email key. */
+/** 32 bytes in unpadded base64url, the shape of every stored email key. */
 const EMAIL_KEY = /^[A-Za-z0-9_-]{43}$/;
 const emailSchema = z.email();
 /** A document version as an import names it: 1-64 visible ASCII characters. */
@@ -52,10 +52,6 @@ export interface ConsentQuery {
   readonly purpose: string;
 }
 
-/** The key an email subject is stored under: base64url SHA-256 of the trimmed, lowercased address. */
-export function getEmailKey(email: string): string {
-  return createHash("sha256").update(email.trim().toLowerCase()).digest("base64url");
-}
 
 const isName = (value: string) => value.length <= MAX_NAME_LENGTH && CONTRIBUTOR_ID_PATTERN.test(value);
 

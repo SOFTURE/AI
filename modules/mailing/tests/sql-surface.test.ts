@@ -1,5 +1,5 @@
-// The SQL surface an app's own queries use instead of the tables: the recipient key, the suppression and delivery
-// predicates and two views whose columns stay put when the tables change.
+// The SQL surface an app's own queries use instead of the tables: two views whose columns stay put when the tables
+// change. The recipient key needs a secret only the server holds, so SQL takes keys from getRecipientKey.
 import { deliverOnce, getRecipientKey, suppressRecipient } from "@softure-ai/mailing/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestMailing, MAIL, NOW, SECRET, type TestMailing } from "./support.js";
@@ -18,46 +18,14 @@ describe("the mailing SQL surface", () => {
     await test.database.close();
   });
 
-  async function selectOne<T>(sql: string, params: unknown[]): Promise<T> {
-    const result = await test.database.client.query<{ value: T }>(sql, params);
-    return result.rows[0]?.value as T;
-  }
+  it("has no function that keys an address in SQL any more (migration 0006)", async () => {
+    const result = await test.database.client.query<{ name: string }>(
+      "SELECT p.proname AS name FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'mailing' ORDER BY 1",
+    );
 
-  it.each([
-    "ada@example.org",
-    "Ada.Lovelace+News@Example.ORG",
-    "  ada@example.org\t",
-    "\n ADA@EXAMPLE.ORG \r\n",
-    " ada@example.org　",
-    "﻿ada@example.org ",
-    "zoë@example.org",
-  ])("mailing.recipient_key(%j) equals getRecipientKey", async (address) => {
-    expect(await selectOne("SELECT mailing.recipient_key($1) AS value", [address])).toBe(getRecipientKey(address));
-  });
-
-  it("mailing.recipient_key(NULL) is NULL", async () => {
-    expect(await selectOne("SELECT mailing.recipient_key(NULL) AS value", [])).toBeNull();
-  });
-
-  it("mailing.is_suppressed tells whether an address unsubscribed, whatever its case and spacing", async () => {
-    await suppressRecipient(test.ctx, MAIL.to);
-
-    expect(await selectOne("SELECT mailing.is_suppressed($1) AS value", [" ADA@example.org "])).toBe(true);
-    expect(await selectOne("SELECT mailing.is_suppressed($1) AS value", ["bob@example.org"])).toBe(false);
-  });
-
-  it("mailing.was_delivered is true only for a sent delivery of that scope and address", async () => {
-    await deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL });
-
-    expect(await selectOne("SELECT mailing.was_delivered($1, $2) AS value", [SCOPE, "Ada@Example.org"])).toBe(true);
-    expect(await selectOne("SELECT mailing.was_delivered($1, $2) AS value", ["billing.renewal:sub_42", MAIL.to])).toBe(false);
-    expect(await selectOne("SELECT mailing.was_delivered($1, $2) AS value", [SCOPE, "bob@example.org"])).toBe(false);
-  });
-
-  it("mailing.was_delivered is false for a rejected delivery", async () => {
-    await deliverOnce(test.ctx, { scope: SCOPE, mail: { ...MAIL, subject: "" } });
-
-    expect(await selectOne("SELECT mailing.was_delivered($1, $2) AS value", [SCOPE, MAIL.to])).toBe(false);
+    expect(result.rows.map((row) => row.name)).not.toContain("recipient_key");
+    expect(result.rows.map((row) => row.name)).not.toContain("is_suppressed");
+    expect(result.rows.map((row) => row.name)).not.toContain("was_delivered");
   });
 
   it("the views expose the ledger and the suppression list under fixed columns", async () => {
@@ -83,15 +51,16 @@ describe("the mailing SQL surface", () => {
     expect(suppressed.rows).toEqual([{ recipient_key: getRecipientKey("bob@example.org"), source: "operator", created_at: NOW }]);
   });
 
-  it("joins an app's table on the recipient key in SQL", async () => {
-    await test.database.client.query("CREATE TABLE public.subscribers (email text NOT NULL)");
-    await test.database.client.query("INSERT INTO public.subscribers VALUES ('ada@example.org'), ('Bob@example.org'), ('cy@example.org')");
+  it("filters an app's addresses on keys from getRecipientKey", async () => {
     await suppressRecipient(test.ctx, "bob@example.org");
+    const addresses = ["ada@example.org", "Bob@example.org", "cy@example.org"];
 
-    const result = await test.database.client.query<{ email: string }>(
-      "SELECT email FROM public.subscribers s WHERE NOT EXISTS (SELECT 1 FROM mailing.suppressed_recipients r WHERE r.recipient_key = mailing.recipient_key(s.email)) ORDER BY email",
+    const result = await test.database.client.query<{ recipient_key: string }>(
+      "SELECT recipient_key FROM mailing.suppressed_recipients WHERE recipient_key = ANY($1::text[])",
+      [addresses.map((address) => getRecipientKey(address))],
     );
+    const suppressed = new Set(result.rows.map((row) => row.recipient_key));
 
-    expect(result.rows.map((row) => row.email)).toEqual(["ada@example.org", "cy@example.org"]);
+    expect(addresses.filter((address) => !suppressed.has(getRecipientKey(address)))).toEqual(["ada@example.org", "cy@example.org"]);
   });
 });

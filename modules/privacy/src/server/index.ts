@@ -1,8 +1,8 @@
 // Server-only API of @softure-ai/privacy. Every function receives the module context
 // (`{ db, clock, config }`) and never reads request scope; the user id comes in as a value.
+export { EMAIL_KEY_ITERATIONS, EMAIL_KEY_SECRET_ENV, getEmailKey, MIN_EMAIL_KEY_SECRET_LENGTH, readEmailKeySecret } from "./email-key.js";
 export {
   getConsent,
-  getEmailKey,
   hasConsent,
   importConsent,
   listConsents,

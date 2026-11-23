@@ -1,8 +1,11 @@
 // Signed unsubscribe links: the recipient key, the signature, rotation and the two URLs.
-import { createHash, createHmac } from "node:crypto";
+import { createHmac, pbkdf2Sync } from "node:crypto";
+import { SoftureConfigError } from "@softure-ai/core";
 import {
   buildUnsubscribeLinks,
+  EMAIL_KEY_ITERATIONS,
   getRecipientKey,
+  readEmailKeySecret,
   readUnsubscribeSecrets,
   readUnsubscribeToken,
   signRecipientKey,
@@ -13,21 +16,43 @@ import { fakeMailProvider } from "@softure-ai/mailing/testing";
 import { describe, expect, it } from "vitest";
 import { createConfig, PREVIOUS_SECRET, SECRET } from "./support.js";
 
-const ADA_KEY = createHash("sha256").update("ada@example.org").digest("base64url");
+const EMAIL_KEY_SECRET = "an-email-key-secret-of-32-chars!";
+const EMAIL_ENV = { SOFTURE_EMAIL_KEY_SECRET: EMAIL_KEY_SECRET };
+// Computed apart from the module, so a change of the derivation fails here (stored keys would all be orphaned).
+const ADA_KEY = pbkdf2Sync("ada@example.org", `softure.email-key.v1:${EMAIL_KEY_SECRET}`, 10_000, 32, "sha256").toString("base64url");
 const CURRENT: UnsubscribeSecrets = { current: SECRET, previous: null };
 
 describe("getRecipientKey", () => {
-  it("is the unpadded base64url SHA-256 of the address", () => {
-    expect(getRecipientKey("ada@example.org")).toBe(ADA_KEY);
+  it("is the unpadded base64url PBKDF2-HMAC-SHA256 of the address, keyed by SOFTURE_EMAIL_KEY_SECRET", () => {
+    expect(EMAIL_KEY_ITERATIONS).toBe(10_000);
+    expect(getRecipientKey("ada@example.org", EMAIL_ENV)).toBe(ADA_KEY);
     expect(ADA_KEY).toMatch(/^[A-Za-z0-9_-]{43}$/);
   });
 
   it("ignores case and surrounding spaces, so Ada@ and ada@ are one recipient", () => {
-    expect(getRecipientKey("  Ada@Example.ORG ")).toBe(ADA_KEY);
+    expect(getRecipientKey("  Ada@Example.ORG ", EMAIL_ENV)).toBe(ADA_KEY);
   });
 
   it("differs per address", () => {
-    expect(getRecipientKey("bob@example.org")).not.toBe(ADA_KEY);
+    expect(getRecipientKey("bob@example.org", EMAIL_ENV)).not.toBe(ADA_KEY);
+  });
+
+  it("differs per secret, so a key cannot be matched to an address without it", () => {
+    expect(getRecipientKey("ada@example.org", { SOFTURE_EMAIL_KEY_SECRET: "another-email-key-secret-32-chrs" })).not.toBe(ADA_KEY);
+  });
+
+  it("reads the secret from process.env by default", () => {
+    expect(getRecipientKey("ada@example.org")).toBe(getRecipientKey("ada@example.org", { SOFTURE_EMAIL_KEY_SECRET: process.env.SOFTURE_EMAIL_KEY_SECRET }));
+  });
+
+  it.each([
+    ["missing", {}],
+    ["empty", { SOFTURE_EMAIL_KEY_SECRET: "" }],
+    ["31 characters", { SOFTURE_EMAIL_KEY_SECRET: EMAIL_KEY_SECRET.slice(1) }],
+  ])("throws a configuration error naming the variable when the secret is %s", (_case, env) => {
+    expect(readEmailKeySecret(env)).toBeNull();
+    expect(() => getRecipientKey("ada@example.org", env)).toThrow(SoftureConfigError);
+    expect(() => getRecipientKey("ada@example.org", env)).toThrow(/SOFTURE_EMAIL_KEY_SECRET: required to key recipients, at least 32 characters/);
   });
 });
 
@@ -96,7 +121,7 @@ describe("buildUnsubscribeLinks", () => {
   const signature = signRecipientKey(ADA_KEY, SECRET);
 
   it("points the page and the one-click route at the app's origin, without the address", () => {
-    const links = buildUnsubscribeLinks(createConfig(fakeMailProvider()), "Ada@example.org", SECRET);
+    const links = buildUnsubscribeLinks(createConfig(fakeMailProvider()), "Ada@example.org", SECRET, EMAIL_ENV);
     expect(links).toEqual({
       page: `https://app.example.com/unsubscribe?r=${ADA_KEY}&t=${signature}`,
       oneClick: `https://app.example.com/api/mailing/unsubscribe?r=${ADA_KEY}&t=${signature}`,
@@ -106,13 +131,13 @@ describe("buildUnsubscribeLinks", () => {
 
   it("follows the app's route overrides", () => {
     const config = createConfig(fakeMailProvider(), { mailingInput: { from: "hello@mail.example.com", provider: fakeMailProvider(), routes: { unsubscribe: "/opt-out", oneClick: "/api/opt-out" } } });
-    const links = buildUnsubscribeLinks(config, "ada@example.org", SECRET);
+    const links = buildUnsubscribeLinks(config, "ada@example.org", SECRET, EMAIL_ENV);
     expect(links.page).toBe(`https://app.example.com/opt-out?r=${ADA_KEY}&t=${signature}`);
     expect(links.oneClick).toBe(`https://app.example.com/api/opt-out?r=${ADA_KEY}&t=${signature}`);
   });
 
   it("round-trips: the token read back from either link verifies", () => {
-    const links = buildUnsubscribeLinks(createConfig(fakeMailProvider()), "ada@example.org", SECRET);
+    const links = buildUnsubscribeLinks(createConfig(fakeMailProvider()), "ada@example.org", SECRET, EMAIL_ENV);
     for (const link of [links.page, links.oneClick]) {
       const token = readUnsubscribeToken(new URL(link).searchParams);
       expect(token).toEqual({ recipientKey: ADA_KEY, signature });

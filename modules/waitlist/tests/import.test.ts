@@ -13,7 +13,7 @@ import { createImportSignupsScript } from "@softure-ai/waitlist/scripts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CLIENT, createTestWaitlist, listConsentRows, NOW, OPTIONS, SECRET, type TestWaitlist } from "./support.js";
 
-const ENV = { MAILING_UNSUBSCRIBE_SECRET: SECRET };
+const ENV = { MAILING_UNSUBSCRIBE_SECRET: SECRET, SOFTURE_EMAIL_KEY_SECRET: process.env.SOFTURE_EMAIL_KEY_SECRET };
 const ADA = "ada@example.com";
 const BOB = "bob@example.com";
 const ADA_ID = "5d4f0a43-8f6a-4c55-9b5e-0d0b8b6f1a01";

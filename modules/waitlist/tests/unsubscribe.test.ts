@@ -12,7 +12,7 @@ const LATER = new Date(NOW.getTime() + 60_000);
 const MUCH_LATER = new Date(NOW.getTime() + 120_000);
 const ADA = "ada@example.com";
 const ADA_KEY = getRecipientKey(ADA);
-const ENV = { MAILING_UNSUBSCRIBE_SECRET: SECRET };
+const ENV = { MAILING_UNSUBSCRIBE_SECRET: SECRET, SOFTURE_EMAIL_KEY_SECRET: process.env.SOFTURE_EMAIL_KEY_SECRET };
 const ADA_TOKEN = { recipientKey: ADA_KEY, signature: signRecipientKey(ADA_KEY, SECRET) };
 const JOIN: JoinWaitlistInput = { email: ADA, scopes: ["launch", "newsletter"], placement: "hero", clientKey: CLIENT };
 
@@ -28,8 +28,11 @@ describe("an unsubscribe and the waitlist's consents", () => {
   });
   afterEach(() => test.database.close());
 
-  it("uses one key for an address in mailing and in privacy", () => {
+  it("uses one key for an address in mailing and in privacy, under any secret", () => {
     expect(getRecipientKey("  Ada@Example.COM ")).toBe(getEmailKey("ada@example.com"));
+    const env = { SOFTURE_EMAIL_KEY_SECRET: "another-email-key-secret-32-chrs" };
+    expect(getRecipientKey("ada@example.com", env)).toBe(getEmailKey("  ADA@example.com", env));
+    expect(getRecipientKey("ada@example.com", env)).not.toBe(getRecipientKey("ada@example.com"));
   });
 
   it("withdraws every granted scope in the unsubscribe's transaction", async () => {

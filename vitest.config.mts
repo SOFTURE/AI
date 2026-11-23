@@ -15,6 +15,9 @@ process.env.NODE_ENV = "test";
 // repository, directly or through a workflow's shell step, then committed, tagged and set `core.bare` in the real
 // repository (issue #1292). Removing them here cleans every worker and child process at once.
 removeRepositoryGitVariables(process.env);
+// The email key secret of mailing and privacy (issue #1418): every test that keys an address reads it. A test of the
+// missing secret passes its own `env`.
+process.env.SOFTURE_EMAIL_KEY_SECRET = "test-email-key-secret-not-for-production";
 
 // Workspace packages export `@softure-ai/source` -> `src/*.ts` first, so tests (and `tsc`, through
 // `customConditions` in tsconfig.base.json) read sources without building `dist/`.

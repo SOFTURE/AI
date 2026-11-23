@@ -20,8 +20,16 @@ import { checkSenderDns, getSenderDomain, resendReturnPath, type DmarcAlignment,
 import { checkImportedDeliveries, importDeliveries, type ImportedDelivery, type ImportProblem } from "../server/import-deliveries.js";
 import { formatMailPreview, maskAddress } from "../server/operator-output.js";
 import { getMailingOptions, resolveMailKind } from "../server/options.js";
-import { previewMail, sendMail, sendMailUnchecked } from "../server/send-mail.js";
-import { MIN_UNSUBSCRIBE_SECRET_LENGTH, readUnsubscribeSecrets, UNSUBSCRIBE_SECRET_ENV, type Env } from "../server/unsubscribe-link.js";
+import { previewMail, sendMail, sendMailUnchecked, type MissingListSecret } from "../server/send-mail.js";
+import {
+  EMAIL_KEY_SECRET_ENV,
+  MIN_EMAIL_KEY_SECRET_LENGTH,
+  MIN_UNSUBSCRIBE_SECRET_LENGTH,
+  readEmailKeySecret,
+  readUnsubscribeSecrets,
+  UNSUBSCRIBE_SECRET_ENV,
+  type Env,
+} from "../server/unsubscribe-link.js";
 
 export interface CliOutput {
   readonly log: (line: string) => void;
@@ -473,6 +481,10 @@ async function runCampaign(command: Extract<Command, { kind: "campaign" }>, opti
     output.error("softure-mail campaign: pass --recipients <file>, or set listCampaignRecipients in the mailing options");
     return EXIT_FAILED;
   }
+  if (readEmailKeySecret(options.env ?? process.env) === null) {
+    output.error(`softure-mail campaign: set ${EMAIL_KEY_SECRET_ENV} (at least ${String(MIN_EMAIL_KEY_SECRET_LENGTH)} characters) to key the recipients`);
+    return EXIT_FAILED;
+  }
   if (!command.dryRun && readUnsubscribeSecrets(options.env ?? process.env).current === null) {
     output.error(`softure-mail campaign: campaigns are list mail; set ${UNSUBSCRIBE_SECRET_ENV} (at least ${String(MIN_UNSUBSCRIBE_SECRET_LENGTH)} characters) to sign their unsubscribe links`);
     return EXIT_FAILED;
@@ -690,7 +702,7 @@ async function reportPlan(
   const to = getMailingOptions(ctx.config).testAddress ?? PREVIEW_ADDRESS;
   const preview = previewMail(ctx.config, { to, subject: campaign.subject, text: campaign.text, kind: campaign.kind, ...(campaign.html === null ? {} : { html: campaign.html }) }, { env: run.env });
   if (preview.ok) printPreview(preview.value, output);
-  else if (preview.error === "mailing.unavailable") output.log(`no preview: set ${UNSUBSCRIBE_SECRET_ENV} to render the unsubscribe footer`);
+  else if (preview.error === "mailing.unavailable") output.log(`no preview: set ${getMissingSecretName(preview.cause)} to render the unsubscribe footer`);
   else output.log(`no preview: the mail is invalid (${preview.fields.join(", ")})`);
   return EXIT_OK;
 }
@@ -735,7 +747,7 @@ async function runTest(command: Extract<Command, { kind: "test" }>, options: Run
   if (command.preview) {
     const preview = previewMail(config, mail, { env: options.env ?? process.env });
     if (!preview.ok) {
-      output.error(`softure-mail test: ${preview.error === "mailing.invalid_input" ? `the mail is invalid (${preview.fields.join(", ")})` : `set ${UNSUBSCRIBE_SECRET_ENV} to sign the unsubscribe link of list mail`}`);
+      output.error(`softure-mail test: ${preview.error === "mailing.invalid_input" ? `the mail is invalid (${preview.fields.join(", ")})` : `set ${getMissingSecretName(preview.cause)} to sign the unsubscribe link of list mail`}`);
       return EXIT_FAILED;
     }
     printPreview(preview.value, output);
@@ -865,4 +877,9 @@ async function readText(path: string): Promise<string | null> {
 function describeError(error: unknown): string {
   if (!(error instanceof Error)) return String(error);
   return error.cause instanceof Error ? error.cause.message : error.message;
+}
+
+/** The variable a preview of list mail lacks. */
+function getMissingSecretName(cause: MissingListSecret): string {
+  return cause === "no_unsubscribe_secret" ? UNSUBSCRIBE_SECRET_ENV : EMAIL_KEY_SECRET_ENV;
 }

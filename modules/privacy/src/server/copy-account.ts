@@ -8,7 +8,7 @@ import { err, ok, type Err, type Ok } from "@softure-ai/core";
 import { findDriverError, type Queryable } from "@softure-ai/db/request";
 import { sql, type SQL } from "drizzle-orm";
 import { getTableConfig } from "drizzle-orm/pg-core";
-import { getEmailKey } from "./consents.js";
+import { getEmailKey } from "./email-key.js";
 
 export type CopyAccountErrorCode =
   | "privacy.copy_account_missing"

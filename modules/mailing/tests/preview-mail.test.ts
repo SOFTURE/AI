@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createConfig, createTestMailing, FROM, MAIL, REPLY_TO, SECRET, type TestMailing } from "./support.js";
 
 const NEWSLETTER: OutgoingMail = { ...MAIL, kind: "newsletter", html: "<p>Hello Ada.</p>", headers: { "X-Campaign": "42" } };
-const ENV = { MAILING_UNSUBSCRIBE_SECRET: SECRET };
+const ENV = { MAILING_UNSUBSCRIBE_SECRET: SECRET, SOFTURE_EMAIL_KEY_SECRET: process.env.SOFTURE_EMAIL_KEY_SECRET };
 
 describe("previewMail", () => {
   let test: TestMailing;
@@ -60,6 +60,10 @@ describe("previewMail", () => {
   it("refuses list mail without the secret, and renders transactional mail without it", () => {
     expect(previewMail(test.config, NEWSLETTER, { env: {} })).toEqual({ ok: false, error: "mailing.unavailable", cause: "no_unsubscribe_secret" });
     expect(previewMail(test.config, MAIL, { env: {} }).ok).toBe(true);
+  });
+
+  it("refuses list mail without the email key secret", () => {
+    expect(previewMail(test.config, NEWSLETTER, { env: { MAILING_UNSUBSCRIBE_SECRET: SECRET } })).toEqual({ ok: false, error: "mailing.unavailable", cause: "no_email_key_secret" });
   });
 
   it("logs nothing", () => {

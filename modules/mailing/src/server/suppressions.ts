@@ -122,5 +122,5 @@ async function verifyLink(ctx: SuppressionContext, link: UnsubscribeLink | Unsub
   if (legacy === undefined) return null;
   const address: unknown = await legacy.verify(link.values, ctx, env);
   if (typeof address !== "string" || address.trim() === "") return null;
-  return { recipientKey: getRecipientKey(address), link: { scheme: "legacy", values: link.values } };
+  return { recipientKey: getRecipientKey(address, env), link: { scheme: "legacy", values: link.values } };
 }
