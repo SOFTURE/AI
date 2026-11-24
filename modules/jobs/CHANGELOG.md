@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.1.15
+
+- **Run now queues a follow-up run while a run is running:** `runScheduleNow` (and the panel's **Run now**) joined a
+  running run of the schedule (`isDuplicate: true`), so input added after that run read its own waited a whole period.
+  Now it joins only a pending run; while one is running it queues one follow-up run behind it (`isDuplicate: false`,
+  dedup key `schedule.next`, new exports `SCHEDULE_FOLLOW_UP_DEDUP_KEY` and `SCHEDULE_DEDUP_KEYS`), which later calls
+  join. A schedule has at most one running and one pending run; the schedule's own period joins either, as before.
+  - Migrate: nothing. An app whose tests pressed "run now" again until its rows settled can press it once and drain
+    the queue. Code that looks a schedule's runs up by `SCHEDULE_DEDUP_KEY` alone should use `SCHEDULE_DEDUP_KEYS`.
+
 ## 0.1.14
 
 - **`runDueJobs` extends the lease of the job it runs:** it now runs each job like the worker does (heartbeats every

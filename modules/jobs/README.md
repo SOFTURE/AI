@@ -308,6 +308,9 @@ export const handlers: JobHandlers = { ...authJobHandlers, ...securityJobHandler
 - Missed periods or times (no worker ran) collapse into one run for the current slot.
 - Every scheduled run has the dedup key `schedule`: while a run is still pending or running (retrying a failure), the
   next period joins it instead of queueing a second run behind it.
+- `runScheduleNow` joins a pending run, but while a run is running it queues one follow-up run behind it (dedup key
+  `schedule.next`, the two keys alternate), so input added after the running run read its own is read right after
+  it. A schedule has at most one running and one pending run; the next period joins either.
 - Scheduled runs are ordinary jobs: retries, `maxAttempts`, `getJob`, `retryJob` and pruning apply.
 - A package's prune handlers live in its `./jobs` entry (`@softure-ai/auth/jobs`, `@softure-ai/mcp-access/jobs`,
   `@softure-ai/waitlist/jobs`, `@softure-ai/security/jobs`, `@softure-ai/analytics/jobs`), with `@softure-ai/jobs` as an
@@ -735,7 +738,7 @@ From `@softure-ai/jobs/server`, each on `ctx = { db, clock, config }`:
 | `requestOwnJobCancel(ctx, { id, ownerId })` | `requestJobCancel` for the job's owner; `jobs.not_found` for anyone else |
 | `retryJob(ctx, id)` | a failed or cancelled job runs again from scratch (attempts 0, due now); `jobs.not_retryable`, `jobs.dedup_key_taken` while a live job has its key, `jobs.not_found` |
 | `listRecentJobs(ctx, { statuses, queue?, limit? })` | jobs in any of `statuses` (a job status or `retrying`: pending after a failed attempt), most recently changed first, up to `limit` (default 50, at most 500) |
-| `runScheduleNow(ctx, queue, { origin? })` | enqueues a run of the schedule now with its payload and dedup key (origin `manual` unless named), joining a pending run (`isDuplicate: true`); the schedule's own period is left alone; `jobs.not_a_schedule` |
+| `runScheduleNow(ctx, queue, { origin? })` | enqueues a run of the schedule now with its payload (origin `manual` unless named), joining a pending run (`isDuplicate: true`); while a run is running, queues one follow-up run behind it (`isDuplicate: false`), which later calls join; the schedule's own period is left alone; `jobs.not_a_schedule` |
 | `retrySyncItem(ctx, { source, itemId })` | a `failed` ledger item back to `pending`, attempts and code cleared, so the next `processSyncItem` runs it; `jobs.sync_item_not_retryable`, `jobs.sync_item_not_found` |
 | `reopenSyncItem(ctx, { source, itemId })` | a `done`, `skipped` or `failed` ledger item back to `pending` as never tried, for an explicit "process again"; a `pending` item unchanged; `jobs.sync_item_not_found` |
 | `getQueueStats(ctx)` | per queue: counts per status, the due backlog, the `run_at` of its oldest due job, `oldestRunningSince` (when its longest-running job was claimed, for an alert on a hung job), its `schedule` (or `null`), its active `pause` (or `null`) and the breaker's `consecutiveFailures` |

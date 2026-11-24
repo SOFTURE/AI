@@ -53,6 +53,8 @@ export {
   getScheduleSlot,
   runScheduleNow,
   SCHEDULE_DEDUP_KEY,
+  SCHEDULE_DEDUP_KEYS,
+  SCHEDULE_FOLLOW_UP_DEDUP_KEY,
   type EnqueueDueSchedulesInput,
   type RunScheduleNowOptions,
   type RunScheduleNowResult,

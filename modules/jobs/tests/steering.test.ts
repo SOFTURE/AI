@@ -4,6 +4,8 @@ import { err, ok } from "@softure-ai/core";
 import { defineJobHandler, failSyncItem, skipSyncItem } from "@softure-ai/jobs";
 import {
   cancelJob,
+  claimJobs,
+  completeJob,
   enqueueDueSchedules,
   enqueueJob,
   listRecentJobs,
@@ -13,6 +15,7 @@ import {
   retrySyncItem,
   runScheduleNow,
   SCHEDULE_DEDUP_KEY,
+  SCHEDULE_FOLLOW_UP_DEDUP_KEY,
 } from "@softure-ai/jobs/server";
 import { listJobs, runDueJobs } from "@softure-ai/jobs/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -90,6 +93,50 @@ describe("runScheduleNow", () => {
 
     const [job] = await listJobs(test.database.db);
     expect(job).toMatchObject({ queue: "reports.daily", payload: { kind: "daily" }, dedupKey: SCHEDULE_DEDUP_KEY, status: "pending" });
+  });
+
+  it("queues one follow-up run while a run is running, and joins that follow-up while it waits", async () => {
+    const first = await runScheduleNow(test.ctx, "reports.daily");
+    const [running] = await claimJobs(test.ctx, { queue: "reports.daily", limit: 1, workerId: "worker-1" });
+
+    const followUp = await runScheduleNow(test.ctx, "reports.daily");
+    expect(followUp).toEqual(ok({ id: expect.any(String) as string, isDuplicate: false }));
+    expect(followUp.ok && first.ok && followUp.value.id !== first.value.id).toBe(true);
+    expect(await runScheduleNow(test.ctx, "reports.daily")).toEqual(ok({ id: followUp.ok ? followUp.value.id : "", isDuplicate: true }));
+
+    expect((await listJobs(test.database.db)).map((job) => [job.status, job.dedupKey, job.payload])).toEqual([
+      ["running", SCHEDULE_DEDUP_KEY, { kind: "daily" }],
+      ["pending", SCHEDULE_FOLLOW_UP_DEDUP_KEY, { kind: "daily" }],
+    ]);
+    expect(running).toBeDefined();
+  });
+
+  it("alternates the two keys: once the follow-up runs, the next run now queues behind it", async () => {
+    await runScheduleNow(test.ctx, "reports.daily");
+    const [first] = await claimJobs(test.ctx, { queue: "reports.daily", limit: 1, workerId: "worker-1" });
+    if (first === undefined) throw new Error("expected a claim");
+    await runScheduleNow(test.ctx, "reports.daily");
+    await completeJob(test.ctx, first, { kind: "succeeded" });
+    await claimJobs(test.ctx, { queue: "reports.daily", limit: 1, workerId: "worker-1" });
+
+    expect(await runScheduleNow(test.ctx, "reports.daily")).toMatchObject({ ok: true, value: { isDuplicate: false } });
+    expect((await listJobs(test.database.db)).map((job) => [job.status, job.dedupKey])).toEqual([
+      ["succeeded", SCHEDULE_DEDUP_KEY],
+      ["running", SCHEDULE_FOLLOW_UP_DEDUP_KEY],
+      ["pending", SCHEDULE_DEDUP_KEY],
+    ]);
+  });
+
+  it("settles concurrent calls during a running run on one follow-up", async () => {
+    await runScheduleNow(test.ctx, "reports.daily");
+    await claimJobs(test.ctx, { queue: "reports.daily", limit: 1, workerId: "worker-1" });
+
+    const results = await Promise.all([runScheduleNow(test.ctx, "reports.daily"), runScheduleNow(test.ctx, "reports.daily"), runScheduleNow(test.ctx, "reports.daily")]);
+
+    const ids = new Set(results.map((result) => (result.ok ? result.value.id : "")));
+    expect(ids.size).toBe(1);
+    expect(results.filter((result) => result.ok && !result.value.isDuplicate)).toHaveLength(1);
+    expect((await listJobs(test.database.db)).map((job) => job.status)).toEqual(["running", "pending"]);
   });
 
   it("leaves the schedule's period alone, so the regular run still comes", async () => {
