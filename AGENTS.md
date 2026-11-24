@@ -423,13 +423,25 @@ word is recorded where the release rules look for it (the roadmap header's `Rele
 the issue link), a "no" or "later" is recorded in the roadmap (`## Owner decisions and checks` or the
 item's status). An issue whose body carries `<!-- owner-word: {"entry": "<id>", "answer": "yes|no|later"} -->`
 answers the `owner_queue` entry with that `id` in `context/state.json`: settle that entry in its `source` file and cite
-the issue (`yes`: carry it out and tick it `— done: #N`; `no`: tick it `— declined: #N` and record what follows;
-`later`: leave it open with `(later: #N)`); an `entry` no longer in the queue gets a comment saying so (WORKFLOW §8.6).
+the issue, so the entry leaves the queue in that commit whatever the answer (never re-word it in place: an aggregator
+shows a re-worded entry as changed since the answer). `yes`: carry it out and tick it `— done: #N`; what only the owner
+can still do goes to the later roadmap as a new item (to `## Before the next release` when it gates a release). `no`:
+tick it `— declined: #N` and record what follows. `later`: move the item to `context/foundation/roadmaps/roadmap-later.md`
+as a new item with the next number of that roadmap's own prefix (its backlog entry moves with it), set the old row
+`carried (to roadmaps/roadmap-later.md <new ID>, #N)` and tick the entry `— later: #N → <new ID>`. An `entry` no longer
+in the queue gets a comment saying so (WORKFLOW §8.6).
+An entry whose `source` is `context/workflow.json#routines.packageUpdates.*` (a package bump's owner work,
+routines/package-updates.md) is settled there: `yes` on an `ownerSteps` entry sets `"confirmed": "#N"`; the answer to
+an owner hold goes on its issue, and the next package-update run applies it and removes the hold.
 Then it comments what it did (thread, PR, merge SHA, roadmap line), closes the issue as
 completed, and names it in the next report. An issue it cannot act on (unclear, contradicts `change.md`
 or a standing order) gets one comment with the question and stays open; the question also goes to the
 owner in the main chat. Owner-word issues are not work items: they never get a thread of their own
 unless the decision itself needs one, and they are not in `context/state.json`.
+A project that sets `autonomy.ownerWordWake: "routine"` also has the owner-word wake routine
+(`routines/owner-word-wake.md`): a GitHub-triggered session that claims a new owner-word issue and hands it to the
+coordinator, or acts on it itself when no coordinator is reachable. An issue claimed by that routine
+(`<!-- owner-word-wake: claimed -->`) is acted on once, by whoever the claim handed it to.
 
 **Issues as the work source** (`autonomy.source: "issues"`, no roadmap):
 - The coordinator lists open issues (through a thread when it has no forge access). Not well-founded:
