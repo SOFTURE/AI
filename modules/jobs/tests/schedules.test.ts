@@ -8,7 +8,9 @@ import {
   enqueueJob,
   getQueueStats,
   getScheduleSlot,
+  runScheduleNow,
   SCHEDULE_DEDUP_KEY,
+  SCHEDULE_FOLLOW_UP_DEDUP_KEY,
   type JobsLogger,
 } from "@softure-ai/jobs/server";
 import { listJobs, runDueJobs } from "@softure-ai/jobs/testing";
@@ -246,6 +248,21 @@ describe("enqueueDueSchedules", () => {
 
     const jobs = await listJobs(test.database.db);
     expect(jobs.map((job) => [job.status, job.attempts])).toEqual([["pending", 1]]);
+  });
+
+  it("joins a period to a follow-up run that waits behind a running one", async () => {
+    test = await createTestJobs({ schedules: SCHEDULES });
+    await enqueueDueSchedules(test.ctx, { queues: ["app.prune"] });
+    await claimJobs(test.ctx, { queue: "app.prune", limit: 1, workerId: "worker-1" });
+    await runScheduleNow(test.ctx, "app.prune");
+
+    test.clock.advance(HOUR_MS);
+    expect(await enqueueDueSchedules(test.ctx, { queues: ["app.prune"] })).toEqual(["app.prune"]);
+
+    expect((await listJobs(test.database.db)).map((job) => [job.status, job.dedupKey])).toEqual([
+      ["running", SCHEDULE_DEDUP_KEY],
+      ["pending", SCHEDULE_FOLLOW_UP_DEDUP_KEY],
+    ]);
   });
 
   it("skips a period an earlier or concurrent runner already took, and never goes back to an older one", async () => {

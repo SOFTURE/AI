@@ -2,7 +2,7 @@
 // schedule's at its listed times of day in its time zone, so every worker computes the same slot. A worker takes a period with a conditional upsert of `jobs.schedules` and enqueues its run
 // in the same transaction, so each period is enqueued once however many workers race for it.
 import { err, getWallClock, getZonedInstant, ok, type Err, type Ok } from "@softure-ai/core";
-import { eq, inArray, lt } from "drizzle-orm";
+import { and, asc, eq, inArray, lt } from "drizzle-orm";
 import {
   parseEverySeconds,
   type JobScheduleOptions,
@@ -10,7 +10,7 @@ import {
   type LocalTimeScheduleOptions,
   type PeriodScheduleOptions,
 } from "../options.js";
-import { schedules } from "../schema.js";
+import { jobs, schedules } from "../schema.js";
 import type { JobsContext } from "./context.js";
 import { enqueueJob, type EnqueuedJob } from "./enqueue.js";
 import { getJobsOptions } from "./options.js";
@@ -20,6 +20,18 @@ import { getJobsOptions } from "./options.js";
  * the next period joins it instead of piling up a second run behind it.
  */
 export const SCHEDULE_DEDUP_KEY = "schedule";
+
+/**
+ * The second dedup key of a schedule's runs: `runScheduleNow` pressed while a run is running queues one follow-up run
+ * under the key the running run does not hold, so a schedule has at most one running and one pending run.
+ */
+export const SCHEDULE_FOLLOW_UP_DEDUP_KEY = "schedule.next";
+
+/** Both dedup keys a schedule's runs alternate between. */
+export const SCHEDULE_DEDUP_KEYS: readonly string[] = [SCHEDULE_DEDUP_KEY, SCHEDULE_FOLLOW_UP_DEDUP_KEY];
+
+/** A lost race (the live runs changed between the read and the insert) reads them again, at most this often. */
+const MAX_RUN_NOW_ROUNDS = 3;
 
 /** A schedule's health as `getQueueStats` reports it. */
 export interface ScheduleState {
@@ -91,6 +103,8 @@ export async function enqueueScheduledRun(ctx: JobsContext, name: string, slot: 
       })
       .returning({ name: schedules.name });
     if (taken === undefined) return false;
+    // A live run (pending, running, or a follow-up waiting behind it) absorbs the period.
+    if ((await findLiveScheduleRuns({ ...ctx, db: tx }, name)).length > 0) return true;
     await enqueueJob({ ...ctx, db: tx }, { queue: name, payload: schedule.payload, dedupKey: SCHEDULE_DEDUP_KEY, origin: "schedule" });
     return true;
   });
@@ -104,15 +118,47 @@ export interface RunScheduleNowOptions {
 }
 
 /**
- * Enqueues a run of the schedule `queue` now, with its payload and its dedup key: while a run is pending or running,
- * this joins it (`isDuplicate: true`, and the waiting run keeps its own origin). The schedule's period is left alone,
- * so its regular run still comes. Refused with `jobs.not_a_schedule` for a queue `schedules` does not name.
+ * Enqueues a run of the schedule `queue` now, with its payload. While a run of the schedule is pending, this joins it
+ * (`isDuplicate: true`, and the waiting run keeps its own origin). While one is running, this queues one follow-up run
+ * behind it, so input added after the running run read its own is read next; a later call joins that follow-up. Two
+ * runs already running (two workers) are joined rather than a third added. The schedule's period is left alone, so
+ * its regular run still comes. Refused with `jobs.not_a_schedule` for a queue `schedules` does not name.
  */
 export async function runScheduleNow(ctx: JobsContext, queue: string, options: RunScheduleNowOptions = {}): Promise<RunScheduleNowResult> {
   const jobsOptions = getJobsOptions(ctx.config);
   if (!Object.hasOwn(jobsOptions.schedules, queue)) return err("jobs.not_a_schedule");
   const schedule = getSchedule(jobsOptions, queue);
-  return ok(await enqueueJob(ctx, { queue, payload: schedule.payload, dedupKey: SCHEDULE_DEDUP_KEY, origin: options.origin ?? "manual" }));
+  let enqueued: EnqueuedJob | undefined;
+  for (let round = 0; round < MAX_RUN_NOW_ROUNDS; round += 1) {
+    const live = await findLiveScheduleRuns(ctx, queue);
+    const pending = live.find((run) => run.status === "pending");
+    if (pending !== undefined) return ok({ id: pending.id, isDuplicate: true });
+    const dedupKey = SCHEDULE_DEDUP_KEYS.find((key) => !live.some((run) => run.dedupKey === key));
+    const latest = live.at(-1);
+    if (dedupKey === undefined && latest !== undefined) return ok({ id: latest.id, isDuplicate: true });
+    enqueued = await enqueueJob(ctx, { queue, payload: schedule.payload, dedupKey: dedupKey ?? SCHEDULE_DEDUP_KEY, origin: options.origin ?? "manual" });
+    // A duplicate here lost a race: another call queued the run (join it) or a worker just claimed it (read again).
+    if (!enqueued.isDuplicate) return ok(enqueued);
+  }
+  // Unreachable in practice: the runs changed under every read. The last answer is a live run of the schedule.
+  if (enqueued === undefined) throw new Error(`@softure-ai/jobs: runScheduleNow could not read the runs of "${queue}"`);
+  return ok(enqueued);
+}
+
+interface LiveScheduleRun {
+  readonly id: string;
+  readonly status: "pending" | "running";
+  readonly dedupKey: string | null;
+}
+
+/** The pending and running runs of the schedule `queue` under either of its dedup keys, oldest first. */
+async function findLiveScheduleRuns(ctx: JobsContext, queue: string): Promise<LiveScheduleRun[]> {
+  const rows = await ctx.db
+    .select({ id: jobs.id, status: jobs.status, dedupKey: jobs.dedupKey })
+    .from(jobs)
+    .where(and(eq(jobs.queue, queue), inArray(jobs.dedupKey, [...SCHEDULE_DEDUP_KEYS]), inArray(jobs.status, ["pending", "running"])))
+    .orderBy(asc(jobs.id));
+  return rows.map((row) => ({ id: row.id.toString(), status: row.status === "pending" ? "pending" : "running", dedupKey: row.dedupKey }));
 }
 
 /** Notes a succeeded job of a scheduled queue (any job of it, a run enqueued by hand too). */
