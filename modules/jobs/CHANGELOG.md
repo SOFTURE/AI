@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.15
 
 - **Run now queues a follow-up run while a run is running:** `runScheduleNow` (and the panel's **Run now**) joined a
   running run of the schedule (`isDuplicate: true`), so input added after that run read its own waited a whole period.
