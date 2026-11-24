@@ -16,4 +16,5 @@ enqueues under the key no running run holds (re-reading on a lost race). The tic
 - Done when: `npx vitest run modules/jobs` passes, typecheck and lint pass.
 
 ## Progress
-- [ ] Phase 1: follow-up run
+- [x] Phase 1: follow-up run (four new tests red before the change; after: `npx vitest run modules/jobs` 25 files,
+  389 tests passed; typecheck and lint pass) 3f76af7; version 0.1.15 98c0b7c

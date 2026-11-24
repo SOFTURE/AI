@@ -1,12 +1,13 @@
 ---
 change_id: jobs-run-now-follow-up
 title: "jobs 0.1.15: run now queues a follow-up run while a run of the schedule is running (issue #1454)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1454
 branch: claude/project-thread-5y02ob
 created: 2026-11-24
 updated: 2026-11-24
+archived_at: 2026-11-24
 ---
 
 ## Intent
@@ -36,3 +37,9 @@ only one live job per key, so a pending run behind a running one needs a second 
 
 ## Notes
 - frame skipped: the problem is a reported, reproduced gap with one proposed shape.
+
+## Done
+0.1.15 in the package: `runScheduleNow` joins a pending run and queues one follow-up run (key `schedule.next`) behind
+a running one; the tick enqueues only when no run of either key is live. New exports `SCHEDULE_FOLLOW_UP_DEDUP_KEY`,
+`SCHEDULE_DEDUP_KEYS`. Tests in `tests/steering.test.ts` and `tests/schedules.test.ts` (red before the change),
+README and CHANGELOG (the adopting app's test workaround can go).
