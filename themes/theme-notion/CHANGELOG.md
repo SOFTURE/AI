@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `DialogContent` and `SheetContent` (#1476): on open they focus the first form field (`input` other than hidden,
+  `select`, `textarea`, `[role=combobox]`, not disabled) instead of the first focusable element, so a dialog whose
+  first focusable is a help `TooltipTrigger` opens with no tooltip over the form. With no field Radix's default focus
+  stays; an app's own `onOpenAutoFocus` runs first and keeps control when it prevents the default.
+- Migration: an app that focused the first field itself in `onOpenAutoFocus` (to keep a tooltip shut) drops the
+  handler.
+
 ## 0.32.0
 
 - `FoldRow` (#1463): the bar and its opened content share one 8 px horizontal inset. The summary is padded `px-2`

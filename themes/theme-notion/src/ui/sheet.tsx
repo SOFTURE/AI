@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { en as messages } from "../messages/en.js"
+import { withFirstFieldFocus } from "../lib/focus-first-field.js"
 import { cn } from "../lib/utils.js"
 import { XIcon } from "lucide-react"
 import { Dialog as SheetPrimitive } from "radix-ui"
@@ -50,6 +51,7 @@ function SheetContent({
   side = "right",
   showCloseButton = true,
   closeLabel = messages.sheet.close,
+  onOpenAutoFocus,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
@@ -62,6 +64,7 @@ function SheetContent({
       <SheetOverlay />
       <SheetPrimitive.Content
         data-slot="sheet-content"
+        onOpenAutoFocus={withFirstFieldFocus(onOpenAutoFocus)}
         className={cn(
           "fixed z-50 flex flex-col gap-4 bg-popover text-popover-foreground shadow-lg transition ease-in-out data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:animate-in data-[state=open]:duration-500",
           side === "right" &&
