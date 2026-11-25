@@ -43,6 +43,6 @@ migrations, test setup, tool config). CI already narrows the same change to the 
 ## Done
 `npm run test:changed` (pre-push) runs the CI test scope when a manifest, lockfile, migration, test setup or tool
 config changed: the reached package folders, their dependents and `tests/`; the whole suite only for a shared root
-file, a repository tool in the lockfile or a failure. A release bump of a leaf package (host@0.2.0) now runs
-`tests/ tools/host/` instead of the full suite. Tests in `tests/repo/test-gates.test.ts`; `lefthook.yml` and AGENTS.md
+file, a repository tool in the lockfile or a failure. A release bump of a leaf package (host@0.2.0) now runs the
+31 repository test files and `tools/host/` (17.6 s) instead of the full suite (about 23 min). Tests in `tests/repo/test-gates.test.ts`; `lefthook.yml` and AGENTS.md
 describe it. The `@softure-ai/config` preset is unchanged, so no release.

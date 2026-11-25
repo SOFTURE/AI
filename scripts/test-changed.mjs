@@ -14,12 +14,12 @@
 // and whenever the base cannot be told (no `origin/master`, a git error, an unreadable lockfile). A failure never
 // narrows the gate.
 import { execFileSync, spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { FULL_SUITE_PATTERNS } from "../tools/config/src/cli/merge-push-scope-command.js";
 import { findWorkspaces } from "./build-workspaces.mjs";
-import { LOCKFILE, getTestScope } from "./ci/affected.mjs";
+import { LOCKFILE, ROOT_TEST_PATH, getTestScope } from "./ci/affected.mjs";
 import { getLockfileReach } from "./ci/lockfile-changes.mjs";
 
 /**
@@ -60,6 +60,29 @@ export function getPushTestScope({ files, packages, readBaseLockfile, readLockfi
   } catch (error) {
     return { kind: "all", reason: `${file} changed and its reach cannot be told (${String(error)})` };
   }
+}
+
+/**
+ * The scope's paths as Vitest filters. A filter matches any file whose path contains it, so `tests/` would also match
+ * every package's `tests/` folder: the repository tests are named file by file instead.
+ * @param {string[]} paths folders from the test scope
+ * @param {string[]} rootTestFiles the test files under the root `tests/` folder, relative to the root
+ * @returns {string[]}
+ */
+export function toVitestFilters(paths, rootTestFiles) {
+  return paths.flatMap((path) => (path === ROOT_TEST_PATH ? rootTestFiles : [path]));
+}
+
+/**
+ * The test files under the root `tests/` folder, relative to the root.
+ * @param {string} root
+ * @returns {string[]}
+ */
+function findRootTestFiles(root) {
+  return readdirSync(resolve(root, ROOT_TEST_PATH), { recursive: true, encoding: "utf8" })
+    .filter((file) => /\.test\.ts$/.test(file))
+    .map((file) => `${ROOT_TEST_PATH}${file.split("\\").join("/")}`)
+    .sort();
 }
 
 /**
@@ -106,7 +129,7 @@ function runCli() {
   }
   if (scope.kind === "paths") {
     console.log(`${scope.file} changed since ${MAIN_REF}: the tests of the packages the change reaches, as CI runs them.`);
-    process.exit(runVitest(["run", "--passWithNoTests", ...scope.paths]));
+    process.exit(runVitest(["run", "--passWithNoTests", ...toVitestFilters(scope.paths, findRootTestFiles(root))]));
   }
   console.log(`${files.length} files changed since ${MAIN_REF} (${base.slice(0, 7)}): related tests and tests/repo.`);
   const related = runVitest(["run", "--changed", base, "--passWithNoTests"]);

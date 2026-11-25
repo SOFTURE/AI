@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { FULL_SUITE_PATTERNS } from "../../tools/config/src/cli/merge-push-scope-command.js";
-import { findFullSuiteFile, getPushTestScope } from "../../scripts/test-changed.mjs";
+import { findFullSuiteFile, getPushTestScope, toVitestFilters } from "../../scripts/test-changed.mjs";
 import { REPO_ROOT } from "./repo-files.js";
 
 // Where the test suite runs. CI runs all of it on master and the reached packages' tests on a pull request, split into
@@ -119,5 +119,15 @@ describe("getPushTestScope", () => {
       throw new Error("fatal: path not in the commit");
     });
     expect(scope).toMatchObject({ kind: "all" });
+  });
+});
+
+describe("toVitestFilters", () => {
+  it("names the root test files one by one, since a filter `tests/` matches every package's tests folder too", () => {
+    expect(toVitestFilters(["tests/", "tools/host/"], ["tests/repo/links.test.ts", "tests/repo/test-gates.test.ts"])).toEqual([
+      "tests/repo/links.test.ts",
+      "tests/repo/test-gates.test.ts",
+      "tools/host/",
+    ]);
   });
 });

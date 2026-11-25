@@ -20,3 +20,6 @@ tests (unchanged); a full-suite file → `getTestScope` of the CI with the lockf
   `npx vitest run tests/repo/test-gates.test.ts` 19 passed; typecheck, lint and language pass) 2213ebb. Dry run of
   `getPushTestScope` on real release commits of master: host@0.2.0 → `tests/ tools/host/`; deploy@0.7.9 → `tests/`
   plus 4 package folders; jobs@0.1.15 → `tests/` plus 16 dependents; each one ran the full suite before.
+- [x] Fix found in the timing check: the Vitest filter `tests/` matches every package's `tests/` folder (substring
+  match), so the host@0.2.0 scope ran 819 files in 24.5 min. The root tests are now named file by file
+  (`toVitestFilters`, test red first): the same scope runs 42 files, 1353 tests, in 17.6 s.
