@@ -31,4 +31,10 @@ unchanged.
 - Ships as a minor of `@softure-ai/testing` (new option and entries, nothing breaks).
 
 ## Progress
-- [ ] Phase 1: DOM project, setup file and renderWithUser
+- [x] Phase 1: DOM project, setup file and renderWithUser (the project-shape test and the Vitest run of a scratch
+  app failed before the code; after: `npx vitest run foundation/testing tests/repo/packages.test.ts` 13 + 1 files
+  passed; the scratch app runs the menu's Enter/ArrowDown/ArrowUp/Escape test and the clean-document test in `|dom|`
+  and the node test in `|node|`; with an empty setup file the clean-document test fails, so the cleanup is proven;
+  with `dist/` built, an app at the repository root resolves `@softure-ai/testing/vitest-dom-setup` and
+  `@softure-ai/testing/dom` by name and runs both projects; typecheck, ESLint, the language gate and the package
+  build passed) f231777
