@@ -1,12 +1,13 @@
 ---
 change_id: auth-invitation-revoke-confirm
 title: "auth: InvitationPanel asks before it revokes an invitation (issue #1470)"
-status: implementing
+status: archived
 roadmap_item: null
 issue: 1470
 branch: claude/project-thread-fo74vb
 created: 2026-11-25
 updated: 2026-11-25
+archived_at: 2026-11-25
 ---
 
 ## Intent
@@ -45,3 +46,10 @@ built-in en/pl copy for Cancel and Close) and `ConfirmActionButton`, which calls
 - research skipped: one component, its tests and the page that builds its rows are the only consumers; the issue names
   the fix.
 - frame skipped: a reported missing confirmation with one proposed shape.
+
+## Done
+`InvitationPanel` asks before it revokes: Revoke opens a dialog titled "Revoke the invitation for {email}?" with one
+line on the effect, Cancel (keeps the invitation, focus back on Revoke) and a destructive Revoke that submits the row's
+form; without JavaScript Revoke posts at once. New `InvitationPanelRow.email` (filled by the page), `modalClassNames`,
+four optional copy keys, 44 px row actions below `md`. Tests (red first), README, CHANGELOG `Unreleased`; ships in the
+next auth release.
