@@ -47,7 +47,7 @@ export type FoldRowDetailsProps =
 
 export type FoldRowProps = FoldRowSummaryProps &
   FoldRowDetailsProps & {
-    /** Indents the opened content to line up with the title after the chevron; by default it is padded equally. */
+    /** Indents the opened content to line up with the title after the chevron; by default it starts under the chevron. */
     readonly isInset?: boolean;
     /** `touch` makes the summary at least the touch target high (44 px) instead of the row height. */
     readonly size?: "default" | "touch";
@@ -66,8 +66,10 @@ export type FoldRowProps = FoldRowSummaryProps &
     readonly actions?: ReactNode;
   };
 
-const CONTENT_CLASS = "flex flex-col gap-2 p-3 empty:hidden";
-const INSET_CONTENT_CLASS = "flex flex-col gap-2 py-2 pr-1 pl-6 empty:hidden";
+// The bar and its opened content share one 8 px horizontal inset, so the details start under the chevron; the inset
+// variant starts under the title instead (8 px inset, 16 px chevron, 8 px gap).
+const CONTENT_CLASS = "flex flex-col gap-2 px-2 py-3 empty:hidden";
+const INSET_CONTENT_CLASS = "flex flex-col gap-2 py-2 pr-2 pl-8 empty:hidden";
 
 function FoldRowFixedSummary({
   title,
@@ -138,7 +140,7 @@ export function FoldRow(props: FoldRowProps) {
       <div
         data-slot="fold-row-actions"
         className={cn(
-          "flex shrink-0 items-center gap-1 rounded-r-md pr-1 transition-colors duration-120 group-hover/fold-row-with-actions:bg-accent peer-open/fold-row:bg-accent",
+          "flex shrink-0 items-center gap-1 rounded-r-md pr-2 transition-colors duration-120 group-hover/fold-row-with-actions:bg-accent peer-open/fold-row:bg-accent",
           size === "touch" ? "min-h-touch-target" : "min-h-row-height",
         )}
       >
@@ -155,7 +157,7 @@ function FoldRowDetails(props: FoldRowProps & { readonly className: string; read
       <summary
         data-slot="fold-row-summary"
         className={cn(
-          "flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-1 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden",
+          "flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-2 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden",
           size === "touch" ? "min-h-touch-target" : "min-h-row-height",
           // With actions the bar continues under them: no rounding on the right, and hovering them lights it too.
           hasActions && "rounded-r-none group-hover/fold-row-with-actions:bg-accent",
