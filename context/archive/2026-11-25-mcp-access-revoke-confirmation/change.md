@@ -1,12 +1,13 @@
 ---
 change_id: mcp-access-revoke-confirmation
 title: "mcp-access: TokenManager confirms a revoke in a dialog (issue #1469)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 1469
 branch: claude/project-thread-9q3sxv
 created: 2026-11-25
 updated: 2026-11-25
+archived_at: 2026-11-25
 ---
 
 ## Intent
@@ -43,3 +44,9 @@ The parallel change for auth's invitation revoke (#1470) follows the same patter
 - research skipped: the gap and the primitive that closes it are both in the repository (token-manager.tsx,
   foundation/ui confirm-action-button.tsx); no external question.
 - frame skipped: a reported UX gap with one proposed shape.
+
+## Done
+A token's Revoke and a connected app's Disconnect on `TokenManager` open a confirmation dialog (name, one-line
+effect, Cancel, destructive confirm); Cancel keeps the token and returns focus, a refusal stays in the dialog. New
+`confirmButton` prop for an app's own control (`TokenManagerConfirmProps`, `TokenManagerConfirmResult`), four copy
+keys, tests (red first), e2e, README, CHANGELOG `Unreleased`; ships in the next mcp-access release.
