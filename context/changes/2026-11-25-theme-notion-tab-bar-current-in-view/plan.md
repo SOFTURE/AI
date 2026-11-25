@@ -16,4 +16,9 @@ sets `data-overflow-start` / `data-overflow-end`. The nav's classes gain the two
 - Done when: `npx vitest run themes/theme-notion` passes, typecheck, lint and build pass, the visual spec passes.
 
 ## Progress
-- [ ] Phase 1: current tab in view and overflow cue
+- [x] Phase 1: current tab in view and overflow cue (6 of 9 new tests red before the change; after: `npx vitest run
+  themes/theme-notion` 69 files, 1338 tests passed; typecheck, ESLint, language gate and `npm run build` passed; the
+  built `dist/notion/TabBar.js` keeps `"use client"`; the visual spec runs in CI (`themes.yml`), the container's
+  Playwright build lacks the pinned headless shell) 34927a5
+- [x] Implementation review fix: the current tab keeps a fade's width (32 px) of room, clamped to the strip, so the
+  end fade never covers a middle tab; test added (18 TabBar tests pass)

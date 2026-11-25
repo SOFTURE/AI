@@ -42,15 +42,19 @@ function markOverflowEdges(strip: HTMLElement) {
   strip.toggleAttribute("data-overflow-end", strip.scrollWidth - strip.clientWidth - strip.scrollLeft > 1);
 }
 
-// Scrolls the strip itself (never the page) just far enough that the current tab is whole.
+// The edge fade's width (`--spacing(8)` in NAV_CLASS): the current tab keeps this much room, so no fade covers it.
+const FADE_WIDTH_PX = 32;
+
+// Scrolls the strip itself (never the page) just far enough that the current tab is whole and clear of the fades.
 function scrollTabIntoStrip(strip: HTMLElement, current: string) {
   const link = [...strip.querySelectorAll<HTMLElement>("a[data-tab]")].find((candidate) => candidate.dataset["tab"] === current);
   if (link === undefined) return;
   const linkBox = link.getBoundingClientRect();
   const start = linkBox.left - strip.getBoundingClientRect().left + strip.scrollLeft;
   const end = start + linkBox.width;
-  if (start < strip.scrollLeft) strip.scrollLeft = start;
-  else if (end > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = end - strip.clientWidth;
+  const maxScroll = Math.max(0, strip.scrollWidth - strip.clientWidth);
+  if (start < strip.scrollLeft) strip.scrollLeft = Math.max(0, start - FADE_WIDTH_PX);
+  else if (end > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = Math.min(maxScroll, end + FADE_WIDTH_PX - strip.clientWidth);
 }
 
 // Keeps the current tab in view (on mount and when it changes) and the overflow marks in step (on scroll and resize).

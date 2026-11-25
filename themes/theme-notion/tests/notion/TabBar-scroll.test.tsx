@@ -37,6 +37,7 @@ type Key = (typeof KEYS)[number];
 const TABS = KEYS.map((key, index) => ({ key, label: key, href: `?tab=${key}`, count: index }));
 const TAB_WIDTH = 100;
 const STRIP_WIDTH = 250;
+const FADE_WIDTH = 32;
 
 // happy-dom lays nothing out: each tab is 100 px wide in a row, the strip shows 250 px of it at its scroll position.
 function layOut(nav: HTMLElement, tabCount: number = KEYS.length) {
@@ -88,7 +89,13 @@ describe("TabBar current tab in view", () => {
 
     rerender(<TabBar label="History" tabs={TABS} current="quality" size="touch" />);
 
-    expect(nav.scrollLeft).toBe(TAB_WIDTH);
+    expect(nav.scrollLeft).toBe(TAB_WIDTH - FADE_WIDTH);
+  });
+
+  it("keeps a fade's width of room past a middle tab, so the end fade does not cover it", () => {
+    const { nav } = renderTabBar("merges");
+
+    expect(nav.scrollLeft).toBe(3 * TAB_WIDTH + FADE_WIDTH - STRIP_WIDTH);
   });
 
   it("moves only the strip, never the page", () => {
