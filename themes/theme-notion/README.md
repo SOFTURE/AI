@@ -116,6 +116,10 @@ name outside a `CommandDialog`; without it the field has none), `SortableList in
   edge, so put content padding on its children (`SheetHeader`, `SheetFooter`, an inner `div`). An app pads its own
   screen roots with the same classes: `pt-[env(safe-area-inset-top)]`, `pb-[env(safe-area-inset-bottom)]`,
   `pl-[env(safe-area-inset-left)]`, `pr-[env(safe-area-inset-right)]`.
+- `DialogContent` and `SheetContent` focus their first form field on open (`input`, `select`, `textarea` or a
+  `combobox`, not disabled), not the first focusable element, so a help `TooltipTrigger` beside a label does not open
+  its tooltip over the form. With no field Radix's default focus stays; an app's `onOpenAutoFocus` runs first and
+  keeps control when it calls `event.preventDefault()`. Tab onto the trigger still shows the tooltip.
 - Figures, bar segments and box edges take a **tone** by what they mean: `default` (text colour), `success` (green,
   done), `warning` (orange, to do), `danger` (red, owed or failing), `muted` (gray, out of play). `TONE_COLORS` gives
   a tone's palette colour (`null` for `default`); `TONE_TEXT`, `TONE_FILL` and `TONE_EDGE` give literal class names
