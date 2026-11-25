@@ -21,3 +21,4 @@ default a danger trigger opening a `Modal` (width `confirmation`) of `@softure-a
 - [x] Phase 1: confirmation dialogs (the six new or changed dialog tests red on the old component; after:
   `npx vitest run modules/mcp-access` 568 passed; typecheck and ESLint passed; e2e specs confirm in the dialog, run in
   CI) 718d73dd
+- [x] Follow-up after the archive: the trigger is a 44 px target on a phone (`sft:min-h-11 sft:md:min-h-0`, as auth #1470), test asserts it; token-manager and architecture tests 32 passed a6f0fada
