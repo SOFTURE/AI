@@ -7,13 +7,17 @@ import {
   type IssueTokenAction,
   type RevokeGrantAction,
   type RevokeTokenAction,
+  type TokenManagerConfirmProps,
   type TokenManagerProps,
   type TokenManagerRow,
 } from "@softure-ai/mcp-access/ui";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 const en = mcpAccessMessages.en;
 const TOKEN = `sftmcp_${"A".repeat(43)}`;
@@ -149,10 +153,61 @@ describe("TokenManager", () => {
     expect(screen.getByRole("alert").textContent).toBe("Your trial has ended.");
   });
 
-  it("lists the owner's tokens and revokes one by its id", async () => {
+  it("lists the owner's tokens and revokes one by its id once the owner confirms", async () => {
     const { revokeAction } = renderManager();
     expect(screen.getByText(`${en.list.active} · ${en.list.readOnly}`)).toBeDefined();
     expect(screen.getByText(LAPTOP.details.join(" · "))).toBeDefined();
+    const trigger = screen.getByRole("button", { name: `${en.list.revoke}: Laptop` });
+    expect(trigger.className).toContain("sft:min-h-11 sft:md:min-h-0");
+    trigger.focus();
+    await submit(trigger);
+    const dialog = screen.getByRole("dialog", { name: "Revoke Laptop?" });
+    expect(dialog.textContent).toContain(en.list.confirmText);
+    expect(revokeAction).not.toHaveBeenCalled();
+
+    await submit(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(revokeAction).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(trigger);
+
+    await submit(trigger);
+    await submit(within(screen.getByRole("dialog")).getByRole("button", { name: en.list.revoke }));
+    expect(revokeAction).toHaveBeenCalledOnce();
+    expect(revokeAction.mock.calls[0]?.[1].get("id")).toBe(LAPTOP.id);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("keeps the revoke dialog open with the refusal", async () => {
+    renderManager({ revokeAction: () => Promise.resolve({ status: "error", error: "mcp-access.token_not_found" }) });
+    await submit(screen.getByRole("button", { name: `${en.list.revoke}: Laptop` }));
+    const dialog = screen.getByRole("dialog");
+    await submit(within(dialog).getByRole("button", { name: en.list.revoke }));
+    expect(within(dialog).getByRole("alert").textContent).toBe(en.errors["mcp-access"].token_not_found);
+    expect(screen.getByRole("dialog")).toBe(dialog);
+  });
+
+  it("shows the generic error in the dialog when the revoke action rejects", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    renderManager({ revokeAction: () => Promise.reject(new Error("network")) });
+    await submit(screen.getByRole("button", { name: `${en.list.revoke}: Laptop` }));
+    await submit(within(screen.getByRole("dialog")).getByRole("button", { name: en.list.revoke }));
+    expect(screen.getByRole("alert").textContent).toBe(en.errors.core.unexpected);
+  });
+
+  it("hands the confirmation to the app's own control", async () => {
+    const confirmButton = vi.fn((props: TokenManagerConfirmProps) => (
+      <button type="button" aria-label={props.ariaLabel} onClick={() => void props.onConfirm()}>
+        {props.title}
+      </button>
+    ));
+    const { revokeAction } = renderManager({ confirmButton });
+    expect(confirmButton.mock.calls[0]?.[0]).toMatchObject({
+      label: en.list.revoke,
+      title: "Revoke Laptop?",
+      description: en.list.confirmText,
+      confirmLabel: en.list.revoke,
+      pendingLabel: en.list.revoking,
+    });
     await submit(screen.getByRole("button", { name: `${en.list.revoke}: Laptop` }));
     expect(revokeAction.mock.calls[0]?.[1].get("id")).toBe(LAPTOP.id);
   });
@@ -177,12 +232,19 @@ describe("TokenManager", () => {
       expect(screen.getByText(en.grants.title)).toBeDefined();
       expect(screen.getByText(GRANT.details.join(" · "))).toBeDefined();
       await submit(screen.getByRole("button", { name: `${en.grants.disconnect}: Claude` }));
+      const dialog = screen.getByRole("dialog", { name: "Disconnect Claude?" });
+      expect(dialog.textContent).toContain(en.grants.confirmText);
+      await submit(within(dialog).getByRole("button", { name: "Cancel" }));
+      expect(revokeGrantAction).not.toHaveBeenCalled();
+      await submit(screen.getByRole("button", { name: `${en.grants.disconnect}: Claude` }));
+      await submit(within(screen.getByRole("dialog")).getByRole("button", { name: en.grants.disconnect }));
       expect(revokeGrantAction.mock.calls[0]?.[1].get("id")).toBe(GRANT.id);
     });
 
-    it("show the refusal of the disconnect action", async () => {
+    it("show the refusal of the disconnect action in the dialog", async () => {
       renderManager({ grants: [GRANT], revokeGrantAction: () => Promise.resolve({ status: "error", error: "mcp-access.grant_not_found" }) });
       await submit(screen.getByRole("button", { name: `${en.grants.disconnect}: Claude` }));
+      await submit(within(screen.getByRole("dialog")).getByRole("button", { name: en.grants.disconnect }));
       expect(screen.getByRole("alert").textContent).toBe(en.errors["mcp-access"].grant_not_found);
     });
 

@@ -1,8 +1,8 @@
 "use client";
 
 import { formatMessage, type Locale } from "@softure-ai/core";
-import { Button, ButtonLink, Checkbox, type ClassNames, createSlotClassGetter, FormError, TextField } from "@softure-ai/ui";
-import { useActionState, useEffect, useRef, useState } from "react";
+import { Button, ButtonLink, Checkbox, type ClassNames, createSlotClassGetter, FormError, Modal, ModalBody, ModalFooter, TextField } from "@softure-ai/ui";
+import { type ReactNode, useActionState, useEffect, useRef, useState } from "react";
 import type { IssuedApiTokenView, IssuedToken, IssueTokenFormState, RevokeGrantFormState, RevokeTokenFormState } from "../contract.js";
 import { getTokenErrorMessage, type McpAccessMessages } from "../messages/index.js";
 import { MAX_TOKEN_NAME_LENGTH } from "../options.js";
@@ -10,7 +10,8 @@ import { MAX_TOKEN_NAME_LENGTH } from "../options.js";
 // The token page's client part: the tool catalog, the issue form, the token just issued with its
 // setup snippets, (with API scopes) the app's scopes and a second form for tokens for other apps,
 // the owner's tokens of both kinds with a revoke button each, and, with OAuth on, the apps
-// connected through OAuth with a disconnect button each. Both forms submit to their
+// connected through OAuth with a disconnect button each. Revoke and disconnect ask first, in a
+// confirmation dialog that names the token or app and says it loses access at once. Both forms submit to their
 // server actions through `useActionState`. The plaintext lives only in the issue form's state:
 // "Done" or leaving the page drops it. Focus follows the one-time token: its heading takes focus
 // when it appears, and "Done" hands focus back to the name field. Copy comes from the module's
@@ -19,6 +20,27 @@ import { MAX_TOKEN_NAME_LENGTH } from "../options.js";
 export type IssueTokenAction = (previous: IssueTokenFormState, formData: FormData) => Promise<IssueTokenFormState>;
 export type RevokeTokenAction = (previous: RevokeTokenFormState, formData: FormData) => Promise<RevokeTokenFormState>;
 export type RevokeGrantAction = (previous: RevokeGrantFormState, formData: FormData) => Promise<RevokeGrantFormState>;
+
+/** What a confirmed revoke or disconnect came to: done, or the user-facing error to show in the dialog. */
+export type TokenManagerConfirmResult = { readonly ok: true } | { readonly ok: false; readonly error: string };
+
+/** Everything a confirmation control needs, in the module's copy, for an app that brings its own (`confirmButton`). */
+export interface TokenManagerConfirmProps {
+  /** The trigger's visible text ("Revoke"). */
+  readonly label: string;
+  /** The trigger's accessible name, naming the token or app ("Revoke: Laptop"). */
+  readonly ariaLabel: string;
+  /** The dialog's title, a question naming the token or app. */
+  readonly title: string;
+  /** The stakes, in one line. */
+  readonly description: string;
+  /** The destructive confirm button's label. */
+  readonly confirmLabel: string;
+  /** The confirm button's label while the action runs. */
+  readonly pendingLabel: string;
+  /** Runs the revoke or disconnect; it never rejects. */
+  readonly onConfirm: () => Promise<TokenManagerConfirmResult>;
+}
 
 /**
  * One part of the token page: the tool catalog, the MCP token form (with the token just issued), the API scopes with
@@ -98,6 +120,11 @@ export interface TokenManagerProps {
    * given here; a section whose data is missing (`api` without `apiScopes`, `grants` without `grants`) stays hidden.
    */
   readonly sections?: readonly TokenManagerSection[];
+  /**
+   * The app's own confirmation control for revoke and disconnect, so every destructive control of the app looks the
+   * same. Leave out for the built-in dialog (`Modal` of `@softure-ai/ui`).
+   */
+  readonly confirmButton?: (props: TokenManagerConfirmProps) => ReactNode;
   readonly messages: McpAccessMessages;
   /** Locale of the built-in copy of the ui primitives. */
   readonly locale?: Locale;
@@ -352,37 +379,109 @@ function ApiIssueForm({
   );
 }
 
+/** The built-in confirmation: a danger trigger that opens a narrow dialog with Cancel and the destructive confirm. */
+function ConfirmDialogButton({ label, ariaLabel, title, description, confirmLabel, pendingLabel, onConfirm, unstyled }: TokenManagerConfirmProps & { unstyled: boolean | undefined }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isPending, setIsPending] = useState(false);
+  const [error, setError] = useState<string | undefined>(undefined);
+  function close() {
+    setIsOpen(false);
+    setError(undefined);
+  }
+  async function confirm() {
+    setIsPending(true);
+    setError(undefined);
+    const result = await onConfirm();
+    setIsPending(false);
+    if (result.ok) close();
+    else setError(result.error);
+  }
+  return (
+    <>
+      <Button
+        variant="danger"
+        size="sm"
+        aria-label={ariaLabel}
+        aria-haspopup="dialog"
+        onClick={() => setIsOpen(true)}
+        // A 44 px target on a phone, the row's compact size from md up.
+        className={unstyled === true ? undefined : "sft:min-h-11 sft:md:min-h-0"}
+        unstyled={unstyled}
+      >
+        {label}
+      </Button>
+      {isOpen ? (
+        // Cancel, Escape and the backdrop close it, and the Modal hands focus back to the trigger.
+        <Modal title={title} width="confirmation" onClose={close} isDismissible={!isPending} unstyled={unstyled}>
+          <ModalBody unstyled={unstyled}>
+            <p className={unstyled === true ? undefined : "sft:m-0 sft:text-sm sft:text-foreground"}>{description}</p>
+          </ModalBody>
+          <ModalFooter onCancel={close} isPending={isPending} error={error} unstyled={unstyled}>
+            <Button variant="danger" pending={isPending} onClick={() => void confirm()} unstyled={unstyled}>
+              {isPending ? pendingLabel : confirmLabel}
+            </Button>
+          </ModalFooter>
+        </Modal>
+      ) : null}
+    </>
+  );
+}
+
+/** Runs a revoke-style server action for one id outside a form, as a confirmation's `onConfirm`. */
+function createConfirmRun(action: RevokeTokenAction | RevokeGrantAction, id: string, messages: McpAccessMessages): () => Promise<TokenManagerConfirmResult> {
+  return async () => {
+    const formData = new FormData();
+    formData.set("id", id);
+    try {
+      const state = await action({ status: "idle" }, formData);
+      return state.status === "error" ? { ok: false, error: getTokenErrorMessage(messages, state.error) } : { ok: true };
+    } catch (rejection: unknown) {
+      // A rejected action (network failure, a stale server action) becomes the generic error in the dialog.
+      console.error("TokenManager: the revoke action rejected", rejection);
+      return { ok: false, error: messages.errors.core.unexpected };
+    }
+  };
+}
+
+function ConfirmControl({ props, confirmButton, unstyled }: { props: TokenManagerConfirmProps; confirmButton: TokenManagerProps["confirmButton"]; unstyled: boolean | undefined }) {
+  return confirmButton === undefined ? <ConfirmDialogButton {...props} unstyled={unstyled} /> : <>{confirmButton(props)}</>;
+}
+
 function TokenItem({
   row,
   action,
+  confirmButton,
   messages,
   slot,
   unstyled,
 }: {
   row: TokenManagerRow;
   action: RevokeTokenAction;
+  confirmButton: TokenManagerProps["confirmButton"];
   messages: McpAccessMessages;
   slot: Slot;
   unstyled: boolean | undefined;
 }) {
-  const [state, formAction, isPending] = useActionState(action, { status: "idle" });
+  const confirm: TokenManagerConfirmProps = {
+    label: messages.list.revoke,
+    ariaLabel: `${messages.list.revoke}: ${row.name}`,
+    title: formatMessage(messages.list.confirmTitle, { name: row.name }),
+    description: messages.list.confirmText,
+    confirmLabel: messages.list.revoke,
+    pendingLabel: messages.list.revoking,
+    onConfirm: createConfirmRun(action, row.id, messages),
+  };
   return (
     <li className={slot("item")} data-token-id={row.id}>
       <div className={slot("itemHeader")}>
         <p className={slot("heading")}>{row.name}</p>
-        <form action={formAction}>
-          <input type="hidden" name="id" value={row.id} />
-          <Button type="submit" variant="danger" size="sm" pending={isPending} aria-label={`${messages.list.revoke}: ${row.name}`} unstyled={unstyled}>
-            {isPending ? messages.list.revoking : messages.list.revoke}
-          </Button>
-        </form>
+        <ConfirmControl props={confirm} confirmButton={confirmButton} unstyled={unstyled} />
       </div>
       <p className={row.isExpired ? slot("details") : slot("badge")}>
         {row.kindText === undefined ? null : `${row.kindText} · `}
         {row.statusText} · {row.scopeText}
       </p>
       <p className={slot("details")}>{row.details.join(" · ")}</p>
-      <FormError message={state.status === "error" ? getTokenErrorMessage(messages, state.error) : undefined} unstyled={unstyled} />
     </li>
   );
 }
@@ -390,31 +489,35 @@ function TokenItem({
 function GrantItem({
   grant,
   action,
+  confirmButton,
   messages,
   slot,
   unstyled,
 }: {
   grant: TokenManagerGrant;
   action: RevokeGrantAction;
+  confirmButton: TokenManagerProps["confirmButton"];
   messages: McpAccessMessages;
   slot: Slot;
   unstyled: boolean | undefined;
 }) {
-  const [state, formAction, isPending] = useActionState(action, { status: "idle" });
+  const confirm: TokenManagerConfirmProps = {
+    label: messages.grants.disconnect,
+    ariaLabel: `${messages.grants.disconnect}: ${grant.clientName}`,
+    title: formatMessage(messages.grants.confirmTitle, { name: grant.clientName }),
+    description: messages.grants.confirmText,
+    confirmLabel: messages.grants.disconnect,
+    pendingLabel: messages.grants.disconnecting,
+    onConfirm: createConfirmRun(action, grant.id, messages),
+  };
   return (
     <li className={slot("item")} data-grant-id={grant.id}>
       <div className={slot("itemHeader")}>
         <p className={slot("heading")}>{grant.clientName}</p>
-        <form action={formAction}>
-          <input type="hidden" name="id" value={grant.id} />
-          <Button type="submit" variant="danger" size="sm" pending={isPending} aria-label={`${messages.grants.disconnect}: ${grant.clientName}`} unstyled={unstyled}>
-            {isPending ? messages.grants.disconnecting : messages.grants.disconnect}
-          </Button>
-        </form>
+        <ConfirmControl props={confirm} confirmButton={confirmButton} unstyled={unstyled} />
       </div>
       <p className={slot("badge")}>{grant.scopeText}</p>
       <p className={slot("details")}>{grant.details.join(" · ")}</p>
-      <FormError message={state.status === "error" ? getTokenErrorMessage(messages, state.error) : undefined} unstyled={unstyled} />
     </li>
   );
 }
@@ -430,6 +533,7 @@ export function TokenManager({
   revokeGrantAction,
   apiScopes,
   sections = TOKEN_MANAGER_SECTIONS,
+  confirmButton,
   messages,
   locale,
   classNames,
@@ -490,7 +594,7 @@ export function TokenManager({
           ) : (
             <ul className={slot("list")}>
               {tokens.map((row) => (
-                <TokenItem key={row.id} row={row} action={revokeAction} messages={messages} slot={slot} unstyled={unstyled} />
+                <TokenItem key={row.id} row={row} action={revokeAction} confirmButton={confirmButton} messages={messages} slot={slot} unstyled={unstyled} />
               ))}
             </ul>
           )}
@@ -505,7 +609,7 @@ export function TokenManager({
           ) : (
             <ul className={slot("list")}>
               {grants.map((grant) => (
-                <GrantItem key={grant.id} grant={grant} action={revokeGrantAction} messages={messages} slot={slot} unstyled={unstyled} />
+                <GrantItem key={grant.id} grant={grant} action={revokeGrantAction} confirmButton={confirmButton} messages={messages} slot={slot} unstyled={unstyled} />
               ))}
             </ul>
           )}

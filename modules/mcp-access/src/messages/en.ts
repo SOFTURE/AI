@@ -81,6 +81,8 @@ export const en = {
     neverUsed: "Not used yet",
     revoke: "Revoke",
     revoking: "Revoking…",
+    confirmTitle: "Revoke {name}?",
+    confirmText: "The assistant using this token loses access at once. This cannot be undone.",
   },
   grants: {
     title: "Connected apps",
@@ -89,6 +91,8 @@ export const en = {
     connectedOn: "Connected {date}",
     disconnect: "Disconnect",
     disconnecting: "Disconnecting…",
+    confirmTitle: "Disconnect {name}?",
+    confirmText: "The app loses access to your account at once. To use it again, connect it anew.",
   },
   consent: {
     title: "{client} wants access to your account",

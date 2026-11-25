@@ -156,6 +156,7 @@ test("an assistant connects through OAuth, refreshes its tokens and loses access
   const item = page.getByRole("listitem").filter({ hasText: clientName });
   await expect(item).toBeVisible();
   await item.getByRole("button", { name: `${mcpCopy.grants.disconnect}: ${clientName}` }).click();
+  await page.getByRole("dialog", { name: formatMessage(mcpCopy.grants.confirmTitle, { name: clientName }) }).getByRole("button", { name: mcpCopy.grants.disconnect }).click();
   await expect(page.getByText(mcpCopy.grants.empty)).toBeVisible();
   expect((await listTools(request, second.access_token)).status).toBe(401);
   const afterDisconnect = await postForm(request, metadata.token_endpoint, { grant_type: "refresh_token", refresh_token: second.refresh_token, client_id: clientId });
