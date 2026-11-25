@@ -6,13 +6,26 @@
 //    the changed test files and every test that imports a changed file, directly or through other files);
 // 2. the repository tests (`tests/repo`), which read files instead of importing them (links, workflows, language).
 //
-// The full suite runs instead when a changed file can break tests that do not import it (a dependency manifest,
-// lockfile, migration, test setup or tool config: the same list the lefthook preset of @softure-ai/config uses), and
-// whenever the base cannot be told (no `origin/master`, a git error). A failure never narrows the gate.
+// When a changed file can break tests that do not import it (a dependency manifest, lockfile, migration, test setup or
+// tool config: the same list the lefthook preset of @softure-ai/config uses), the tests run in the scope the pull
+// request's CI test job runs (scripts/ci/affected.mjs, getTestScope): the folders of the packages the change reaches,
+// their dependents and tests/. A release's version bump so runs the bumped package and its dependents, not the whole
+// suite. The whole suite runs when that scope is everything (a shared root file, a repository tool in the lockfile)
+// and whenever the base cannot be told (no `origin/master`, a git error, an unreadable lockfile). A failure never
+// narrows the gate.
 import { execFileSync, spawnSync } from "node:child_process";
+import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { FULL_SUITE_PATTERNS } from "../tools/config/src/cli/merge-push-scope-command.js";
+import { findWorkspaces } from "./build-workspaces.mjs";
+import { LOCKFILE, ROOT_TEST_PATH, getTestScope } from "./ci/affected.mjs";
+import { getLockfileReach } from "./ci/lockfile-changes.mjs";
+
+/**
+ * @typedef {import("./build-workspaces.mjs").WorkspacePackage} WorkspacePackage
+ * @typedef {{ kind: "related" } | { kind: "all", reason: string } | { kind: "paths", paths: string[], file: string }} PushTestScope
+ */
 
 /** The ref the branch is compared with. */
 export const MAIN_REF = "origin/master";
@@ -29,11 +42,56 @@ export function findFullSuiteFile(files, patterns) {
 }
 
 /**
+ * Which tests a push needs: the related tests, the CI test scope of a change that touches a full-suite file, or the
+ * whole suite.
+ * @param {{ files: string[], packages: WorkspacePackage[], readBaseLockfile: () => unknown, readLockfile: () => unknown }} options
+ *   `readBaseLockfile` reads package-lock.json at the merge base and may throw; it is read only when the lockfile changed.
+ * @returns {PushTestScope}
+ */
+export function getPushTestScope({ files, packages, readBaseLockfile, readLockfile }) {
+  const file = findFullSuiteFile(files, FULL_SUITE_PATTERNS);
+  if (file === undefined) return { kind: "related" };
+  try {
+    const lockfile = files.includes(LOCKFILE)
+      ? getLockfileReach({ before: readBaseLockfile(), after: readLockfile(), workspaces: packages })
+      : undefined;
+    const scope = getTestScope({ changed: { kind: "files", files, lockfile }, packages });
+    return scope.kind === "all" ? { kind: "all", reason: `${file} changed: ${scope.reason}` } : { ...scope, file };
+  } catch (error) {
+    return { kind: "all", reason: `${file} changed and its reach cannot be told (${String(error)})` };
+  }
+}
+
+/**
+ * The scope's paths as Vitest filters. A filter matches any file whose path contains it, so `tests/` would also match
+ * every package's `tests/` folder: the repository tests are named file by file instead.
+ * @param {string[]} paths folders from the test scope
+ * @param {string[]} rootTestFiles the test files under the root `tests/` folder, relative to the root
+ * @returns {string[]}
+ */
+export function toVitestFilters(paths, rootTestFiles) {
+  return paths.flatMap((path) => (path === ROOT_TEST_PATH ? rootTestFiles : [path]));
+}
+
+/**
+ * The test files under the root `tests/` folder, relative to the root.
+ * @param {string} root
+ * @returns {string[]}
+ */
+function findRootTestFiles(root) {
+  return readdirSync(resolve(root, ROOT_TEST_PATH), { recursive: true, encoding: "utf8" })
+    .filter((file) => /\.test\.ts$/.test(file))
+    .map((file) => `${ROOT_TEST_PATH}${file.split("\\").join("/")}`)
+    .sort();
+}
+
+/**
  * @param {string[]} args
  * @returns {string}
  */
 function runGit(args) {
-  return execFileSync("git", args, { encoding: "utf8" }).trim();
+  // The lockfile at the base is read through git too: tens of megabytes.
+  return execFileSync("git", args, { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 }).trim();
 }
 
 /**
@@ -58,10 +116,20 @@ function runCli() {
     console.log(`Full suite: the changes since ${MAIN_REF} cannot be listed (${String(error)}).`);
     process.exit(runVitest(["run"]));
   }
-  const fullSuiteFile = findFullSuiteFile(files, FULL_SUITE_PATTERNS);
-  if (fullSuiteFile !== undefined) {
-    console.log(`Full suite: ${fullSuiteFile} changed since ${MAIN_REF}.`);
+  const root = fileURLToPath(new URL("../", import.meta.url));
+  const scope = getPushTestScope({
+    files,
+    packages: findWorkspaces(root),
+    readBaseLockfile: () => /** @type {unknown} */ (JSON.parse(runGit(["show", `${base}:${LOCKFILE}`]))),
+    readLockfile: () => /** @type {unknown} */ (JSON.parse(readFileSync(resolve(root, LOCKFILE), "utf8"))),
+  });
+  if (scope.kind === "all") {
+    console.log(`Full suite: ${scope.reason}.`);
     process.exit(runVitest(["run"]));
+  }
+  if (scope.kind === "paths") {
+    console.log(`${scope.file} changed since ${MAIN_REF}: the tests of the packages the change reaches, as CI runs them.`);
+    process.exit(runVitest(["run", "--passWithNoTests", ...toVitestFilters(scope.paths, findRootTestFiles(root))]));
   }
   console.log(`${files.length} files changed since ${MAIN_REF} (${base.slice(0, 7)}): related tests and tests/repo.`);
   const related = runVitest(["run", "--changed", base, "--passWithNoTests"]);
