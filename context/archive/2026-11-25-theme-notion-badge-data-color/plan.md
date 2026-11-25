@@ -14,4 +14,6 @@ props spread so a caller's own value wins.
 - Done when: `npx vitest run themes/theme-notion` passes, typecheck, lint and build pass.
 
 ## Progress
-- [ ] Phase 1: data-color on Badge
+- [x] Phase 1: data-color on Badge (10 new Badge tests red before the change; after: `npx vitest run
+  themes/theme-notion` 70 files, 1365 tests passed, two `Stats` aside assertions now name `data-color`; parity
+  fixture unchanged; `npm run typecheck`, `npm run lint` incl. the language gate, `npm run build` passed) b722022

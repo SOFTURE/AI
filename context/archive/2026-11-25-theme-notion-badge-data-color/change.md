@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-badge-data-color
 title: "theme-notion: Badge names its colour in data-color, like Status (issue #1482)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1482
 branch: claude/project-thread-dfhpxs
 created: 2026-11-25
 updated: 2026-11-25
+archived_at: 2026-11-25
 ---
 
 ## Intent
@@ -37,3 +38,9 @@ badge. `Badge` already sets `data-variant`.
 - research skipped: the gap (one missing attribute in one file) and its shape are named in the issue; `Status` is the
   pattern to copy.
 - frame skipped: a reported gap with one proposed shape.
+
+## Done
+`Badge` renders `data-color="<color>"` next to `data-variant` when it has a palette colour (none for `none` or no
+colour; a caller's own `data-color` wins), so a filled tag's colour is checked as a `Status` is
+(`[data-color=red]`). Tests (red first), upstream delta, README and CHANGELOG `Unreleased`; ships in the next
+theme-notion release. An adopting app drops its own `data-tone`/`data-color` on badges.
