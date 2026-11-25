@@ -59,17 +59,20 @@ export type FoldRowProps = FoldRowSummaryProps &
      */
     readonly isOpenInitially?: boolean;
     /**
-     * Controls at the right end of the row's bar (a delete button, a menu). They sit beside the `<summary>`, not in
-     * it, so clicking them never folds the row, but they share its background: the bar runs under them when the row
-     * is open or hovered. Shown whether the row is open or closed, centred on the summary's first line.
+     * Controls in the right column of the row's bar (a delete button, a menu). The column sits beside the `<summary>`,
+     * not in it, so clicking a control never folds the row; it spans the summary's full height and lights with it when
+     * the row is open or hovered, so the bar reads as one box. On a phone (below `md`) the column falls under the
+     * summary and each control is at least the touch target (44 px).
      */
     readonly actions?: ReactNode;
+    /** The item's status, drawn in the same column above the actions (with no actions, the column holds only it). */
+    readonly status?: ReactNode;
   };
 
 // The bar and its opened content share one 8 px horizontal inset, so the details start under the chevron; the inset
 // variant starts under the title instead (8 px inset, 16 px chevron, 8 px gap).
-const CONTENT_CLASS = "flex flex-col gap-2 px-2 py-3 empty:hidden";
-const INSET_CONTENT_CLASS = "flex flex-col gap-2 py-2 pr-2 pl-8 empty:hidden";
+const CONTENT_LAYOUT = "flex-col gap-2 px-2 py-3";
+const INSET_CONTENT_LAYOUT = "flex-col gap-2 py-2 pr-2 pl-8";
 
 function FoldRowFixedSummary({
   title,
@@ -125,42 +128,91 @@ function FoldRowChevron() {
   );
 }
 
+function isDrawn(node: ReactNode): boolean {
+  return node !== undefined && node !== null;
+}
+
 // An item as one folding list row: a native `<details>` that opens in place to its details, with no client state.
 export function FoldRow(props: FoldRowProps) {
-  const { actions, size = "default" } = props;
-  if (actions === undefined || actions === null) {
-    return <FoldRowDetails {...props} className="border-b border-border" />;
+  const { actions, status, isInset = false } = props;
+  if (!isDrawn(actions) && !isDrawn(status)) {
+    return (
+      <FoldRowDetails
+        {...props}
+        className="border-b border-border"
+        content={<FoldRowContent {...props} className={cn("flex", isInset ? INSET_CONTENT_LAYOUT : CONTENT_LAYOUT, "empty:hidden")} />}
+      />
+    );
   }
-  // The actions sit beside the `<details>`, not in its `<summary>`: a control inside the summary would fold the row.
-  // They carry the summary's background (the details is their peer: open; the wrapper is the hover group), so the
-  // summary and the actions read as one bar with the controls at its right end.
+  // The right column sits beside the `<details>`, not in its `<summary>`: a control inside the summary would fold the
+  // row. To make the column exactly as high as the summary, the `<details>` holds only its summary and shares a grid
+  // row with the column (grid items stretch to their row); the opened content is the next row, shown while the
+  // details is open (`peer-open`). The details and the column carry the bar's light together, so they read as one box.
   return (
-    <div data-slot="fold-row-with-actions" className="group/fold-row-with-actions flex items-start border-b border-border">
-      <FoldRowDetails {...props} className="peer/fold-row min-w-0 flex-1" hasActions />
+    <div
+      data-slot="fold-row-with-actions"
+      className="group/fold-row-with-actions grid grid-cols-1 border-b border-border md:grid-cols-[minmax(0,1fr)_auto]"
+    >
+      <FoldRowDetails
+        {...props}
+        className="peer/fold-row min-w-0 rounded-md transition-colors duration-120 group-hover/fold-row-with-actions:bg-accent open:bg-accent max-md:rounded-b-none md:rounded-r-none"
+        isLitByRow
+      />
       <div
         data-slot="fold-row-actions"
-        className={cn(
-          "flex shrink-0 items-center gap-1 rounded-r-md pr-2 transition-colors duration-120 group-hover/fold-row-with-actions:bg-accent peer-open/fold-row:bg-accent",
-          size === "touch" ? "min-h-touch-target" : "min-h-row-height",
-        )}
+        className="flex flex-wrap items-center gap-2 rounded-b-md pr-2 pb-1 pl-8 transition-colors duration-120 group-hover/fold-row-with-actions:bg-accent peer-open/fold-row:bg-accent md:flex-col md:flex-nowrap md:items-end md:justify-center md:gap-1 md:rounded-b-none md:rounded-r-md md:py-1 md:pl-0"
       >
-        {actions}
+        {isDrawn(status) ? (
+          <div data-slot="fold-row-status" className="flex items-center">
+            {status}
+          </div>
+        ) : null}
+        {isDrawn(actions) ? (
+          <div
+            data-slot="fold-row-action-list"
+            className="flex items-center gap-1 max-md:*:min-h-touch-target max-md:*:min-w-touch-target"
+          >
+            {actions}
+          </div>
+        ) : null}
       </div>
+      <FoldRowContent
+        {...props}
+        className={cn("col-span-full hidden", isInset ? INSET_CONTENT_LAYOUT : CONTENT_LAYOUT, "peer-open/fold-row:not-empty:flex")}
+      />
     </div>
   );
 }
 
-function FoldRowDetails(props: FoldRowProps & { readonly className: string; readonly hasActions?: boolean }) {
-  const { isInset = false, isOpenInitially = false, size = "default", children, className, hasActions = false } = props;
+function FoldRowContent(props: FoldRowProps & { readonly className: string }) {
+  const { isInset = false, children, className } = props;
+  return (
+    <div data-slot="fold-row-content" data-inset={isInset} className={className}>
+      {props.details === undefined ? null : <DetailTable label={props.detailsLabel} rows={props.details} />}
+      {children}
+    </div>
+  );
+}
+
+function FoldRowDetails(
+  props: FoldRowProps & {
+    readonly className: string;
+    /** The summary lights on its own, or the wrapper lights the whole details (with the right column). */
+    readonly isLitByRow?: boolean;
+    /** The opened content, when it lives inside the details. */
+    readonly content?: ReactNode;
+  },
+) {
+  const { isOpenInitially = false, size = "default", className, isLitByRow = false, content } = props;
   return (
     <details data-slot="fold-row" open={isOpenInitially || undefined} className={cn("group/fold-row", className)}>
       <summary
         data-slot="fold-row-summary"
         className={cn(
-          "flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-2 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden",
+          "flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-2 py-1",
+          !isLitByRow && "transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent",
+          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden",
           size === "touch" ? "min-h-touch-target" : "min-h-row-height",
-          // With actions the bar continues under them: no rounding on the right, and hovering them lights it too.
-          hasActions && "rounded-r-none group-hover/fold-row-with-actions:bg-accent",
         )}
       >
         {props.summary === undefined ? (
@@ -177,10 +229,7 @@ function FoldRowDetails(props: FoldRowProps & { readonly className: string; read
           </>
         )}
       </summary>
-      <div data-slot="fold-row-content" data-inset={isInset} className={isInset ? INSET_CONTENT_CLASS : CONTENT_CLASS}>
-        {props.details === undefined ? null : <DetailTable label={props.detailsLabel} rows={props.details} />}
-        {children}
-      </div>
+      {content}
     </details>
   );
 }

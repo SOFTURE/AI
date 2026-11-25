@@ -1695,6 +1695,30 @@ const NOTION_CASES: readonly GalleryCase[] = [
     ),
   },
   {
+    name: "FoldRow[actions]",
+    component: "FoldRow",
+    root: '[data-slot="fold-row-with-actions"]',
+    render: () => (
+      <div className="w-80">
+        <FoldRow
+          summary={<span className="text-ui-medium">Website redesign for the spring campaign, with new pages, owners and deadlines</span>}
+          status={
+            <Status color="green" icon={CircleCheck}>
+              Paid
+            </Status>
+          }
+          actions={
+            <Button variant="ghost" size="icon-sm" aria-label="Delete">
+              <X />
+            </Button>
+          }
+        >
+          <p>Pages, owners and deadlines.</p>
+        </FoldRow>
+      </div>
+    ),
+  },
+  {
     name: "FoldRow[size=touch]",
     component: "FoldRow",
     root: '[data-slot="fold-row"]',

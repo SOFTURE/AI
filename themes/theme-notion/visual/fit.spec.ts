@@ -243,3 +243,78 @@ for (const [width, isStacked] of [[360, true], [600, false]] as const) {
     }
   });
 }
+
+interface FoldRowBar {
+  readonly details: Box & { readonly top: number; readonly bottom: number };
+  readonly column: Box & { readonly top: number; readonly bottom: number };
+  readonly status: { readonly bottom: number; readonly top: number };
+  readonly action: { readonly top: number; readonly width: number; readonly height: number };
+  readonly detailsLight: string;
+  readonly columnLight: string;
+}
+
+// Geometry, not pixels (#1471): a FoldRow with a three-line summary, a status and one action reads as one bar. The
+// right column is exactly as high as the summary and lights with it; the status sits above the action; on a phone the
+// column falls under the summary with a 44 px control.
+test("a fold row's action column spans its three-line summary and lights with it", async ({ page }, testInfo) => {
+  await page.goto(PAGE_URL);
+  await page.evaluate(() => document.fonts.ready);
+  const row = page.locator('[data-slot="fold-row-with-actions"]').first();
+  const readBar = (): Promise<FoldRowBar> =>
+    row.evaluate((element): FoldRowBar => {
+      const find = (slot: string): HTMLElement => {
+        const found = element.querySelector<HTMLElement>(`[data-slot="${slot}"]`);
+        if (found === null) throw new Error(`no [data-slot="${slot}"] in the fold row`);
+        return found;
+      };
+      const toBox = (target: Element) => {
+        const box = target.getBoundingClientRect();
+        return { left: box.left, right: box.right, top: box.top, bottom: box.bottom };
+      };
+      const action = find("fold-row-action-list").firstElementChild;
+      if (action === null) throw new Error("no action in the fold row");
+      const actionBox = action.getBoundingClientRect();
+      return {
+        details: toBox(find("fold-row")),
+        column: toBox(find("fold-row-actions")),
+        status: toBox(find("fold-row-status")),
+        action: { top: actionBox.top, width: actionBox.width, height: actionBox.height },
+        detailsLight: getComputedStyle(find("fold-row")).backgroundColor,
+        columnLight: getComputedStyle(find("fold-row-actions")).backgroundColor,
+      };
+    });
+  const summaryLineHeight = await row
+    .locator('[data-slot="fold-row-summary-slot"] > span')
+    .evaluate((span) => ({ height: span.getBoundingClientRect().height, line: Number.parseFloat(getComputedStyle(span).lineHeight) }));
+  expect(summaryLineHeight.height / summaryLineHeight.line).toBeGreaterThanOrEqual(3);
+
+  const resting = await readBar();
+  expect(resting.detailsLight).toBe("rgba(0, 0, 0, 0)");
+  expect(resting.columnLight).toBe(resting.detailsLight);
+
+  if (testInfo.project.name.startsWith("phone")) {
+    expect(resting.column.top).toBe(resting.details.bottom);
+    expect(resting.column.left).toBe(resting.details.left);
+    expect(resting.column.right).toBe(resting.details.right);
+    expect(resting.action.height).toBeGreaterThanOrEqual(44);
+    expect(resting.action.width).toBeGreaterThanOrEqual(44);
+  } else {
+    expect([resting.column.top, resting.column.bottom]).toEqual([resting.details.top, resting.details.bottom]);
+    expect(resting.column.left).toBe(resting.details.right);
+    expect(resting.status.bottom).toBeLessThanOrEqual(resting.action.top);
+  }
+
+  for (const target of ['[data-slot="fold-row-summary"]', '[data-slot="fold-row-actions"]']) {
+    await row.locator(target).hover();
+    await expect.poll(async () => (await readBar()).detailsLight).not.toBe("rgba(0, 0, 0, 0)");
+    const lit = await readBar();
+    expect(lit.columnLight).toBe(lit.detailsLight);
+  }
+
+  // Opened, the content runs under the whole bar and the column still ends with the summary.
+  await row.locator('[data-slot="fold-row-summary"]').click();
+  await expect(row.locator('[data-slot="fold-row-content"]')).toBeVisible();
+  const opened = await readBar();
+  if (testInfo.project.name.startsWith("phone")) expect(opened.column.top).toBe(opened.details.bottom);
+  else expect([opened.column.top, opened.column.bottom]).toEqual([opened.details.top, opened.details.bottom]);
+});
