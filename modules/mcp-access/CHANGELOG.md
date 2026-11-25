@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
-## Unreleased
+## 0.7.9
 
 - **Revoke and Disconnect ask first:** on the token page, a token's Revoke and a connected app's Disconnect open a
   confirmation dialog that names the token or app, says it loses access at once, and offers Cancel and a destructive
