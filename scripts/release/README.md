@@ -53,7 +53,9 @@ a changelog without one, or with an empty one), commits
 The tag then runs the workflow:
 
 1. **validate and pack**: a check that the tag is on `master`, the gates (typecheck, lint, test), `npm run build`, then
-   `npm run release:pack -- --tag core@0.2.0`. It refuses the release when the tag, `package.json` and
+   `npm run release:pack -- --tag core@0.2.0`. The gates are skipped when the tagged commit has a successful
+   `ci.yml` run for its push to `master`, which ran the same gates on the whole tree
+   (`scripts/release/master-gates.mjs` waits up to 30 minutes for a run still going); otherwise they run here. It refuses the release when the tag, `package.json` and
    `module.json` disagree on the version, the package is private, `repository` or `publishConfig` is
    wrong, an internal `@softure-ai/*` range does not accept the workspace version, or the tarball
    misses an `exports` target, `LICENSE` or a source-map source, or ships a test.

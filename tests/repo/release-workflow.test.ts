@@ -62,3 +62,21 @@ describe("the release workflow's npm publish", () => {
     expect(workflow).toContain('npm publish "./release-out/${TARBALL}" --provenance --access public');
   });
 });
+
+// A tag release repeated typecheck, lint and the whole suite on one runner (20 to 30 minutes) for a commit that ci.yml
+// had already tested on its push to master. It skips them only on a successful master run of that commit.
+describe("the release workflow's gates", () => {
+  it("are skipped only when the commit passed ci.yml on master", () => {
+    const workflow = readWorkflow("release.yml");
+    expect(workflow).toContain('decision="$(node scripts/release/master-gates.mjs "$(git rev-parse HEAD)")"');
+    expect(workflow).toContain("if: github.ref_type == 'tag' && steps.master-gates.outputs.decision != 'passed'");
+  });
+
+  it("are the ones ci.yml runs on a push to master", () => {
+    const ci = readWorkflow("ci.yml");
+    expect(ci).toMatch(/on:\n {2}push:\n {4}branches: \[master\]/);
+    expect(ci).toContain("TEST_PATHS: ${{ github.event_name == 'pull_request' && needs.changes.outputs.test-paths || '' }}");
+    expect(ci).toContain("- run: npm run typecheck");
+    expect(ci).toContain("- run: npm run lint");
+  });
+});
