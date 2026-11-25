@@ -303,7 +303,10 @@ auth({ registrationClosed: true, roles: ["editor"], invitations: { send: mailing
   referrer policy.
 - **Managing.** The page lists the newest 200 invitations with their state (pending, expired, accepted, revoked), roles,
   inviter and dates. A pending or expired one can be resent (a new link and expiry; the old link stops working) or
-  revoked. A sender that fails leaves the invitation pending and shows `auth.invitation_not_sent`; Resend tries again.
+  revoked. Revoke asks first in a dialog that names the invited email (`InvitationPanelRow.email`) and says the link
+  stops working; Cancel keeps the invitation and returns focus to Revoke. Without JavaScript Revoke posts at once. The
+  dialog is `@softure-ai/ui`'s `Modal`; `modalClassNames` gives it the app's dialog look. Row actions are 44 px tall
+  below the `md` breakpoint. A sender that fails leaves the invitation pending and shows `auth.invitation_not_sent`; Resend tries again.
 - **Limits and audit.** Inviting and resending count in the `invitation` bucket per admin; accepting counts in
   `register` per client address. Every invite, resend, revoke and acceptance writes one server log line
   (`@softure-ai/auth: audit invitation.<event> id=<invitation> by=<admin>` or `user=<account>`), never the address or the
@@ -316,7 +319,9 @@ auth({ registrationClosed: true, roles: ["editor"], invitations: { send: mailing
   `findInvitation` and `registerInvitedUser`, for an app with its own admin shell; `InvitationPanel` (`/ui`) and
   `inviteAction`, `resendInvitationAction`, `revokeInvitationAction` (`/next`) are the page's parts.
 - **Copy.** The `invitations` and `invitationMail` copy and the new error codes are optional in `AuthMessages`; a
-  dictionary without them reads the English copy.
+  dictionary without them reads the English copy. So are the revoke dialog's keys inside `invitations` (`revokeTitle`
+  with `{email}`, `revokeTitleUnnamed`, `revokeBody`, `revokeConfirm`): a missing key reads English. Cancel and Close
+  come from `@softure-ai/ui` in the ui locale.
 
 ## 4. Mounting
 

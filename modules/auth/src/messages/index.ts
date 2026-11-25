@@ -16,6 +16,9 @@ type InvitationErrorName =
   | "role_undeclared";
 /** Error keys added after the first dictionaries: optional, a missing one reads the English copy. */
 type LaterErrorName = OidcErrorName | InvitationErrorName;
+type InvitationCopy = EnglishMessages["invitations"];
+/** Invitation keys added after the first invitation dictionaries: optional, a missing one reads the English copy. */
+type LaterInvitationKey = "revokeTitle" | "revokeTitleUnnamed" | "revokeBody" | "revokeConfirm";
 
 /**
  * One locale's copy. The OpenID Connect keys (`oidc`, `errors.auth.oidc_*`) and the invitation keys (`invitations`,
@@ -24,7 +27,7 @@ type LaterErrorName = OidcErrorName | InvitationErrorName;
  */
 export type AuthMessages = Omit<EnglishMessages, "oidc" | "invitations" | "invitationMail" | "errors"> & {
   readonly oidc?: EnglishMessages["oidc"];
-  readonly invitations?: EnglishMessages["invitations"];
+  readonly invitations?: Omit<InvitationCopy, LaterInvitationKey> & Partial<Pick<InvitationCopy, LaterInvitationKey>>;
   readonly invitationMail?: EnglishMessages["invitationMail"];
   readonly errors: Omit<EnglishMessages["errors"], "auth"> & {
     readonly auth: Omit<AuthErrorCopy, LaterErrorName> & Partial<Pick<AuthErrorCopy, LaterErrorName>>;
@@ -36,9 +39,9 @@ export function getOidcMessages(messages: AuthMessages): EnglishMessages["oidc"]
   return messages.oidc ?? en.oidc;
 }
 
-/** The invitation page and form copy of `messages`, or the English one when the dictionary has none. */
-export function getInvitationMessages(messages: AuthMessages): EnglishMessages["invitations"] {
-  return messages.invitations ?? en.invitations;
+/** The invitation page and form copy of `messages`, each key the dictionary lacks read from the English one. */
+export function getInvitationMessages(messages: AuthMessages): InvitationCopy {
+  return messages.invitations === undefined ? en.invitations : { ...en.invitations, ...messages.invitations };
 }
 
 /** The invitation mail copy of `messages`, or the English one when the dictionary has none. */
