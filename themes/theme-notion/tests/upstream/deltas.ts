@@ -371,6 +371,21 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       upstream: "      {children}\n      {showCloseButton && (\n        <DialogPrimitive.Close asChild>\n          <Button variant=\"outline\">{closeLabel}</Button>\n        </DialogPrimitive.Close>\n      )}\n",
       ours: "      {showCloseButton && (\n        <DialogPrimitive.Close asChild>\n          <Button variant=\"outline\">{closeLabel}</Button>\n        </DialogPrimitive.Close>\n      )}\n      {children}\n",
     },
+    {
+      reason: "focus: the content focuses its first form field on open, not a tooltip trigger before it, unless the app's `onOpenAutoFocus` prevents it (#1476)",
+      upstream: "import { cn } from \"../lib/utils.js\"",
+      ours: "import { withFirstFieldFocus } from \"../lib/focus-first-field.js\"\nimport { cn } from \"../lib/utils.js\"",
+    },
+    {
+      reason: "focus: the content focuses its first form field on open, not a tooltip trigger before it, unless the app's `onOpenAutoFocus` prevents it (#1476)",
+      upstream: "  size = \"default\",\n  ...props",
+      ours: "  size = \"default\",\n  onOpenAutoFocus,\n  ...props",
+    },
+    {
+      reason: "focus: the content focuses its first form field on open, not a tooltip trigger before it, unless the app's `onOpenAutoFocus` prevents it (#1476)",
+      upstream: "        data-slot=\"dialog-content\"\n",
+      ours: "        data-slot=\"dialog-content\"\n        onOpenAutoFocus={withFirstFieldFocus(onOpenAutoFocus)}\n",
+    },
   ],
   "dropdown-menu": [
     {
@@ -815,6 +830,21 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       reason: "copy: built-in English text from the message layer, overridable by a prop",
       upstream: "            <span className=\"sr-only\">Close</span>",
       ours: "            <span className=\"sr-only\">{closeLabel}</span>",
+    },
+    {
+      reason: "focus: the content focuses its first form field on open, not a tooltip trigger before it, unless the app's `onOpenAutoFocus` prevents it (#1476)",
+      upstream: "import { cn } from \"../lib/utils.js\"",
+      ours: "import { withFirstFieldFocus } from \"../lib/focus-first-field.js\"\nimport { cn } from \"../lib/utils.js\"",
+    },
+    {
+      reason: "focus: the content focuses its first form field on open, not a tooltip trigger before it, unless the app's `onOpenAutoFocus` prevents it (#1476)",
+      upstream: "  closeLabel = messages.sheet.close,\n  ...props",
+      ours: "  closeLabel = messages.sheet.close,\n  onOpenAutoFocus,\n  ...props",
+    },
+    {
+      reason: "focus: the content focuses its first form field on open, not a tooltip trigger before it, unless the app's `onOpenAutoFocus` prevents it (#1476)",
+      upstream: "        data-slot=\"sheet-content\"\n",
+      ours: "        data-slot=\"sheet-content\"\n        onOpenAutoFocus={withFirstFieldFocus(onOpenAutoFocus)}\n",
     },
   ],
   "sidebar": [
