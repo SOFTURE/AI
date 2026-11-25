@@ -17,4 +17,6 @@ prevents Radix's own focus. `DialogContent` and `SheetContent` pass it to the Ra
 - Done when: `npx vitest run themes/theme-notion` passes, typecheck and lint pass, build passes.
 
 ## Progress
-- [ ] Phase 1: focus the first field
+- [x] Phase 1: focus the first field (the six bug cases of `tests/ui/dialog-first-field.test.tsx` red before the
+  change, the six control cases green; after: `npx vitest run themes/theme-notion` 69 files, 1341 tests passed;
+  typecheck, lint, language gate and `npm run build` passed) 98c32d2

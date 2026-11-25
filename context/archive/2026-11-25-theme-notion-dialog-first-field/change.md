@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-dialog-first-field
 title: "theme-notion: a dialog or sheet opens with focus on its first field, not on a tooltip trigger (issue #1476)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1476
 branch: claude/project-thread-0c0deo
 created: 2026-11-25
 updated: 2026-11-25
+archived_at: 2026-11-25
 ---
 
 ## Intent
@@ -38,3 +39,11 @@ button's tooltip covers the form as the dialog opens, mouse-opened included. An 
 - research skipped: the cause (Radix focus-on-mount meets tooltip-on-focus) and the fix are named in the issue; the
   two content components and their tests are the only consumers in the repository.
 - frame skipped: a reproduced bug with an agreed acceptance.
+
+## Done
+`DialogContent` and `SheetContent` focus their first form field on open (`input` other than hidden, `select`,
+`textarea`, `[role=combobox]`, not disabled, not inside `[hidden]` or `[inert]`) through `withFirstFieldFocus`
+(`src/lib/focus-first-field.ts`), so a help `TooltipTrigger` before the field no longer opens its tooltip as the
+dialog opens. No field: Radix's default focus. The app's `onOpenAutoFocus` runs first and wins when it prevents the
+default. Tests (red first), upstream deltas, README, CHANGELOG `Unreleased`. An adopting app drops its own
+first-field `onOpenAutoFocus` workaround.
