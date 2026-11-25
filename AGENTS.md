@@ -79,8 +79,9 @@ thread does not close one by hand. A false positive is said in the issue, and th
 
 ## Cockpit wake
 
-The existing scheduled task "AI · Nowe issues" (fired on every `issues.opened` in this repository) serves as the
-cockpit wake routine here (`autonomy.cockpitWake: "routine"`); no second routine is created. A cockpit issue is handled
+The existing scheduled task "AI · Nowe issues" is meant to serve as the cockpit wake routine here; no second routine
+is created. Its GitHub trigger did not fire on a test cockpit issue (#1465, 2026-11-25), so `autonomy.cockpitWake`
+stays `"none"` until the trigger is verified, then becomes `"routine"`. A cockpit issue is handled
 as the managed block's Cockpit issues say: the `<!-- cockpit: … -->` marker, settle the `owner_queue` entry it names,
 comment what was done, close the issue.
 
