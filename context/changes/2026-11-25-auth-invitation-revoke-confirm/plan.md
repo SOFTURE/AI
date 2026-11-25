@@ -16,4 +16,6 @@ prevented and opens a `Modal`; the dialog's Revoke calls `requestSubmit()` on th
 - Done when: `npx vitest run modules/auth` passes, typecheck and lint pass.
 
 ## Progress
-- [ ] Phase 1: confirm before revoke
+- [x] Phase 1: confirm before revoke (the five dialog tests red before the change, Resend green; after:
+  `npx vitest run modules/auth` 43 files, 565 tests passed; typecheck and ESLint passed; the 44 px class is
+  `sft:min-h-11 sft:md:min-h-0`, which ui compiles, after auth's architecture test rejected `max-sm:h-11`) PHASE1_SHA

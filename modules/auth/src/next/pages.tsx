@@ -353,6 +353,7 @@ export function toInvitationRow(view: InvitationView, messages: AuthMessages, co
   if (view.revokedAt !== null) details.push(formatMessage(copy.revokedOn, { date: date(view.revokedAt) }));
   return {
     id: view.id,
+    email: view.email,
     title: formatMessage(copy.itemTitle, { email: view.email, status: copy.status[view.status] }),
     details,
     isOpen: view.status === "pending" || view.status === "expired",

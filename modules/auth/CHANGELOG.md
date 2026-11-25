@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## Unreleased
+
+- **`InvitationPanel` confirms Revoke** (issue #1470): Revoke opens a dialog titled with the invited email ("Revoke the
+  invitation for {email}?"), one line on the effect, Cancel and a destructive Revoke; Cancel keeps the invitation and
+  returns focus to the row's Revoke. The confirm submits the row's form, so the action, its redirect and its errors are
+  unchanged, and without JavaScript Revoke still posts at once. New: `InvitationPanelRow.email` (the page fills it),
+  `modalClassNames` for the dialog's slots, copy keys `invitations.revokeTitle`, `revokeTitleUnnamed`, `revokeBody`,
+  `revokeConfirm` (optional; missing ones read English), and 44 px row actions below the `md` breakpoint.
+  - Migrate: nothing required. An app with its own `invitations` dictionary adds the four keys in its language, and
+    drops any local confirmation it wrapped around the panel's Revoke.
+
 ## 0.2.23
 
 - **`LogoutButton` and `LogoutForm` style their button** (issue #1439): new props `size`, `fullWidth`, `iconLeft`,

@@ -1,7 +1,7 @@
 ---
 change_id: auth-invitation-revoke-confirm
 title: "auth: InvitationPanel asks before it revokes an invitation (issue #1470)"
-status: planned
+status: implementing
 roadmap_item: null
 issue: 1470
 branch: claude/project-thread-fo74vb

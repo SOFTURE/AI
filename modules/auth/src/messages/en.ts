@@ -78,6 +78,12 @@ export const en = {
     empty: "No invitations yet.",
     resend: "Resend",
     revoke: "Revoke",
+    /** The revoke confirmation's title; `{email}` is the invited address. */
+    revokeTitle: "Revoke the invitation for {email}?",
+    /** The title when the row names no email. */
+    revokeTitleUnnamed: "Revoke this invitation?",
+    revokeBody: "The invitation link stops working. You can send a new invitation later.",
+    revokeConfirm: "Revoke",
     /** The state of one invitation in the list. */
     status: { pending: "Pending", expired: "Expired", accepted: "Accepted", revoked: "Revoked" },
     /** One invitation in the list: `{email}` and its `{status}`. */

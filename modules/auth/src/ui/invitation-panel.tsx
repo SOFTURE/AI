@@ -1,8 +1,8 @@
 "use client";
 
-import type { Locale } from "@softure-ai/core";
-import { Button, Checkbox, type ClassNames, createSlotClassGetter, FormError, TextField } from "@softure-ai/ui";
-import { useActionState } from "react";
+import { formatMessage, type Locale } from "@softure-ai/core";
+import { Button, Checkbox, type ClassNames, createSlotClassGetter, FormError, Modal, ModalBody, ModalFooter, type ModalSlot, TextField } from "@softure-ai/ui";
+import { type MouseEvent, useActionState, useRef, useState } from "react";
 import { INITIAL_AUTH_FORM_STATE } from "../contract.js";
 import { type AuthMessages, getAuthErrorMessage, getInvitationMessages } from "../messages/index.js";
 import type { AuthFormAction } from "./auth-forms.js";
@@ -10,13 +10,16 @@ import type { AuthFormAction } from "./auth-forms.js";
 // The invitations panel of the admin page: a form to invite an email with roles, then the sent invitations, each with
 // its state and, while it is pending or expired, Resend and Revoke. Every form posts to its server action through
 // `useActionState`, so it works without JavaScript; a success redirects back to the page, which reads the list again.
+// With JavaScript, Revoke first asks in a dialog; its confirm submits the row's form, so the action path is the same.
 // Copy comes from the module's messages (the page formats dates); styling only from @softure-ai/ui classes.
 
-export type InvitationPanelSlot = "root" | "form" | "roles" | "notice" | "title" | "list" | "item" | "line" | "note" | "actions" | "empty";
+export type InvitationPanelSlot = "root" | "form" | "roles" | "notice" | "title" | "list" | "item" | "line" | "note" | "actions" | "action" | "empty";
 
 /** One invitation as the panel renders it; the page prepares it on the server, copy and dates included. */
 export interface InvitationPanelRow {
   readonly id: string;
+  /** The invited email, named in the revoke confirmation's title. */
+  readonly email?: string;
   /** The email and the state in the app's copy (Pending, Expired, Accepted, Revoked). */
   readonly title: string;
   /** Lines under the email: roles, who sent it and when, until when it works. */
@@ -38,6 +41,8 @@ export interface InvitationPanelProps {
   /** Locale of the built-in copy of the ui primitives. */
   readonly locale?: Locale;
   readonly classNames?: ClassNames<InvitationPanelSlot>;
+  /** The revoke confirmation's slots (`overlay`, `panel`, `close`…), for the app's dialog look. */
+  readonly modalClassNames?: ClassNames<ModalSlot>;
   readonly unstyled?: boolean;
 }
 
@@ -52,6 +57,7 @@ const DEFAULT_CLASSES: Readonly<Record<InvitationPanelSlot, string>> = {
   line: "sft:m-0 sft:text-sm",
   note: "sft:m-0 sft:text-xs sft:text-muted",
   actions: "sft:flex sft:gap-2",
+  action: "sft:min-h-11 sft:md:min-h-0",
   empty: "sft:m-0 sft:text-sm sft:text-muted",
 };
 
@@ -95,19 +101,21 @@ function InviteForm({ action, roles, messages, locale, slot, unstyled }: {
   );
 }
 
-function RowAction({ id, action, label, variant, messages, unstyled }: {
-  id: string;
-  action: AuthFormAction;
-  label: string;
-  variant: "secondary" | "danger";
-  messages: AuthMessages;
-  unstyled: boolean | undefined;
-}) {
+interface RowActionProps {
+  readonly id: string;
+  readonly action: AuthFormAction;
+  readonly label: string;
+  readonly messages: AuthMessages;
+  readonly slot: Slot;
+  readonly unstyled: boolean | undefined;
+}
+
+function RowAction({ id, action, label, messages, slot, unstyled }: RowActionProps) {
   const [state, formAction, isPending] = useActionState(action, INITIAL_AUTH_FORM_STATE);
   return (
     <form action={formAction}>
       <input type="hidden" name="id" value={id} />
-      <Button type="submit" size="sm" variant={variant} pending={isPending} unstyled={unstyled}>
+      <Button type="submit" size="sm" variant="secondary" pending={isPending} className={slot("action")} unstyled={unstyled}>
         {label}
       </Button>
       <FormError message={state.error === undefined ? undefined : getAuthErrorMessage(messages, state.error)} unstyled={unstyled} />
@@ -115,9 +123,68 @@ function RowAction({ id, action, label, variant, messages, unstyled }: {
   );
 }
 
+/**
+ * Revoke behind a confirmation. The button stays the form's submit button, so without JavaScript it revokes at once;
+ * with JavaScript its click opens the dialog, and the dialog's Revoke submits the form.
+ */
+function RevokeAction({ id, email, action, messages, locale, slot, modalClassNames, unstyled }: Omit<RowActionProps, "label"> & {
+  readonly email: string | undefined;
+  readonly locale: Locale | undefined;
+  readonly modalClassNames: ClassNames<ModalSlot> | undefined;
+}) {
+  const [state, formAction, isPending] = useActionState(action, INITIAL_AUTH_FORM_STATE);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const copy = getInvitationMessages(messages);
+  const title = email === undefined ? copy.revokeTitleUnnamed : formatMessage(copy.revokeTitle, { email });
+
+  function openConfirmation(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    if (!isPending) setIsConfirming(true);
+  }
+
+  function confirm() {
+    setIsConfirming(false);
+    // The form's Revoke button is the submitter: the submit its click would have sent, without the click itself.
+    const form = formRef.current;
+    form?.requestSubmit(form.querySelector<HTMLButtonElement>("button[type=submit]"));
+  }
+
+  return (
+    <form ref={formRef} action={formAction}>
+      <input type="hidden" name="id" value={id} />
+      <Button
+        type="submit"
+        size="sm"
+        variant="danger"
+        pending={isPending}
+        aria-haspopup="dialog"
+        onClick={openConfirmation}
+        className={slot("action")}
+        unstyled={unstyled}
+      >
+        {copy.revoke}
+      </Button>
+      <FormError message={state.error === undefined ? undefined : getAuthErrorMessage(messages, state.error)} unstyled={unstyled} />
+      {isConfirming ? (
+        <Modal title={title} width="confirmation" onClose={() => setIsConfirming(false)} locale={locale} classNames={modalClassNames} unstyled={unstyled}>
+          <ModalBody unstyled={unstyled}>
+            <p className={slot("line")}>{copy.revokeBody}</p>
+          </ModalBody>
+          <ModalFooter onCancel={() => setIsConfirming(false)} locale={locale} unstyled={unstyled}>
+            <Button type="button" variant="danger" onClick={confirm} unstyled={unstyled}>
+              {copy.revokeConfirm}
+            </Button>
+          </ModalFooter>
+        </Modal>
+      ) : null}
+    </form>
+  );
+}
+
 /** The invite form and the sent invitations, newest first; the empty state when there are none. */
 export function InvitationPanel(props: InvitationPanelProps) {
-  const { rows, roles, inviteAction, resendAction, revokeAction, messages, notice, locale, classNames, unstyled } = props;
+  const { rows, roles, inviteAction, resendAction, revokeAction, messages, notice, locale, classNames, modalClassNames, unstyled } = props;
   const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
   const copy = getInvitationMessages(messages);
   return (
@@ -144,8 +211,17 @@ export function InvitationPanel(props: InvitationPanelProps) {
                 ))}
                 {row.isOpen ? (
                   <div className={slot("actions")}>
-                    <RowAction id={row.id} action={resendAction} label={copy.resend} variant="secondary" messages={messages} unstyled={unstyled} />
-                    <RowAction id={row.id} action={revokeAction} label={copy.revoke} variant="danger" messages={messages} unstyled={unstyled} />
+                    <RowAction id={row.id} action={resendAction} label={copy.resend} messages={messages} slot={slot} unstyled={unstyled} />
+                    <RevokeAction
+                      id={row.id}
+                      email={row.email}
+                      action={revokeAction}
+                      messages={messages}
+                      locale={locale}
+                      slot={slot}
+                      modalClassNames={modalClassNames}
+                      unstyled={unstyled}
+                    />
                   </div>
                 ) : null}
               </li>
