@@ -4,7 +4,8 @@
 #   pre-commit  typecheck, lint and language, in parallel. Seconds.
 #   commit-msg  language, on the commit message.
 #   pre-push    `npm run test:changed`: the tests related to the branch's changes and the repository tests;
-#               the full suite when a manifest, lockfile, migration, test setup or tool config changed.
+#               when a manifest, lockfile, migration, test setup or tool config changed, the tests of the packages
+#               the change reaches (the pull request's CI scope); the full suite when that scope is everything.
 #
 # `glob` is the "was any code touched" switch: a commit that stages only Markdown skips typecheck
 # and lint (lefthook skips a job when no staged file matches). The language job has no glob, so

@@ -29,7 +29,9 @@ npm run build          # tsc builds of every workspace package, in dependency or
 - `lefthook.yml`: `pre-commit` runs typecheck, ESLint on staged files and the language gate in
   parallel (a Markdown-only commit skips typecheck and lint); `commit-msg` runs the language gate
   on the message; `pre-push` runs `npm run test:changed` (the tests related to the branch's changes and
-  the repository tests; the full suite when a manifest, lockfile, migration, test setup or tool config changed).
+  the repository tests; when a manifest, lockfile, migration, test setup or tool config changed, the tests of the
+  packages the change reaches, as the pull request's CI runs them; the full suite when a shared root file or a
+  repository tool changed).
 - Never `--no-verify`. A red hook is a red gate: fix the cause.
 - `npm test` must pass on macOS with its own tools, since its tests run in the pre-push hook there too. The shell scripts the
   tests run (the deploy workflow's steps, `deploy.sh`, the deploy e2e scripts) stay within bash 3.2 and flags that
