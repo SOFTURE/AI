@@ -1,12 +1,12 @@
 ---
 change_id: release-skip-repeated-gates
 title: "A tag release skips the gates its commit already passed on master"
-status: planned
+status: archived
 roadmap_item: null
 branch: claude/project-thread-velbub
 created: 2026-11-25
 updated: 2026-11-25
-archived_at: null
+archived_at: 2026-11-25
 ---
 
 ## Intent
@@ -30,3 +30,10 @@ master (which runs those gates on the whole tree), and runs them as today otherw
 
 ## Notes
 - frame skipped: the problem and the fix are measured in the report; no product question.
+
+## Done
+- `scripts/release/master-gates.mjs`: answers `passed` when the tagged commit has a successful `ci.yml` push run on
+  master, waits up to 30 minutes for one in progress, answers `run` otherwise (API errors included).
+- `release.yml` (`validate and pack`, `actions: read`): `Gates` runs only when the answer is not `passed`.
+- Expected effect: a tag release about 5 to 8 minutes instead of 20 to 31; the first real release after the merge
+  shows the notice "This commit passed ci.yml on master".

@@ -22,5 +22,8 @@ decision is unit-tested.
 - Done when: the `Gates` step is conditional on the script's answer; a repository test pins it; actionlint passes.
 
 ## Progress
-- [ ] Phase 1
-- [ ] Phase 2
+- [x] Phase 1: `decideGates` + CLI (6a2b5dd); `npx vitest run tests/repo/release-master-gates.test.ts` 6/6 green;
+  live API filter checked: `ci.yml` push run of master 74532eb answers completed/success; CLI falls back to `run`
+  on a bad SHA and on HTTP 401.
+- [x] Phase 2: `release.yml` step "Gates already passed on master" and conditional `Gates` (9749d12); repository
+  tests 15/15 green in the two release files; ESLint, typecheck and the language gate green in the hooks.
