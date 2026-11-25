@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-tab-bar-current-in-view
 title: "theme-notion: TabBar scrolls the current tab into view and shows an overflow cue (issue #1477)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1477
 branch: claude/project-thread-m8hqbp
 created: 2026-11-25
 updated: 2026-11-25
+archived_at: 2026-11-25
 ---
 
 ## Intent
@@ -42,3 +43,9 @@ active trigger with a client effect; `TabBar` (#723) has no client code.
 - research skipped: the component is one file, the prior art (`useCentredActiveTrigger` in `src/ui/tabs.tsx`) and the
   expected behaviour are named in the issue.
 - frame skipped: a reported, reproduced bug with the expected behaviour spelled out.
+
+## Done
+`TabBar` scrolls its own strip, never the page, so the current tab is whole on load and whenever `current` changes,
+with a fade's width (32 px) of room; each edge that hides tabs fades out with a static mask and is marked
+`data-overflow-start` / `data-overflow-end`. `TabBar` is a client component with unchanged props. Tests (red first),
+parity fixture, README, CHANGELOG `Unreleased`; ships in the next theme-notion release.
