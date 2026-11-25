@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 
 import { cn } from "../lib/utils.js";
 
@@ -30,11 +32,61 @@ const TAB_CLASS =
 
 const TOUCH_TAB_CLASS = "h-touch-target min-w-touch-target justify-center px-3";
 
+// Static fades (no motion, so nothing to drop under prefers-reduced-motion) on each edge that hides tabs.
+const NAV_CLASS =
+  "overflow-x-auto border-b border-border data-overflow-start:mask-l-from-[calc(100%---spacing(8))] data-overflow-end:mask-r-from-[calc(100%---spacing(8))]";
+
+// Marks each edge that hides tabs (`data-overflow-start`, `data-overflow-end`); a pixel of rounding is not overflow.
+function markOverflowEdges(strip: HTMLElement) {
+  strip.toggleAttribute("data-overflow-start", strip.scrollLeft > 1);
+  strip.toggleAttribute("data-overflow-end", strip.scrollWidth - strip.clientWidth - strip.scrollLeft > 1);
+}
+
+// The edge fade's width (`--spacing(8)` in NAV_CLASS): the current tab keeps this much room, so no fade covers it.
+const FADE_WIDTH_PX = 32;
+
+// Scrolls the strip itself (never the page) just far enough that the current tab is whole and clear of the fades.
+function scrollTabIntoStrip(strip: HTMLElement, current: string) {
+  const link = [...strip.querySelectorAll<HTMLElement>("a[data-tab]")].find((candidate) => candidate.dataset["tab"] === current);
+  if (link === undefined) return;
+  const linkBox = link.getBoundingClientRect();
+  const start = linkBox.left - strip.getBoundingClientRect().left + strip.scrollLeft;
+  const end = start + linkBox.width;
+  const maxScroll = Math.max(0, strip.scrollWidth - strip.clientWidth);
+  if (start < strip.scrollLeft) strip.scrollLeft = Math.max(0, start - FADE_WIDTH_PX);
+  else if (end > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = Math.min(maxScroll, end + FADE_WIDTH_PX - strip.clientWidth);
+}
+
+// Keeps the current tab in view (on mount and when it changes) and the overflow marks in step (on scroll and resize).
+function useStripScroll(strip: RefObject<HTMLElement | null>, current: string) {
+  useEffect(() => {
+    const element = strip.current;
+    if (element === null) return;
+    const markEdges = () => markOverflowEdges(element);
+    element.addEventListener("scroll", markEdges, { passive: true });
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(markEdges);
+    observer?.observe(element);
+    return () => {
+      element.removeEventListener("scroll", markEdges);
+      observer?.disconnect();
+    };
+  }, [strip]);
+
+  useEffect(() => {
+    const element = strip.current;
+    if (element === null) return;
+    scrollTabIntoStrip(element, current);
+    markOverflowEdges(element);
+  }, [strip, current]);
+}
+
 // A screen's tabs as line tabs where each tab is a link, so the shown tab lives in the address and survives a reload.
 export function TabBar<Key extends string>({ label, tabs, current, size = "default", tabClassName }: TabBarProps<Key>) {
   const linkClass = cn(TAB_CLASS, size === "touch" && TOUCH_TAB_CLASS, tabClassName);
+  const stripRef = useRef<HTMLElement | null>(null);
+  useStripScroll(stripRef, current);
   return (
-    <nav aria-label={label} data-slot="tab-bar" className="overflow-x-auto border-b border-border">
+    <nav ref={stripRef} aria-label={label} data-slot="tab-bar" className={NAV_CLASS}>
       <ul className="flex gap-1 pb-1">
         {tabs.map((tab) => (
           <li key={tab.key}>

@@ -8,6 +8,9 @@ import { TabBar } from "../../src/notion/TabBar.js";
 const LINK_CLASS =
   "relative inline-flex h-control-height items-center gap-1.5 rounded-md px-2 text-ui-medium whitespace-nowrap text-muted-foreground transition-colors duration-120 after:absolute after:inset-x-0 after:-bottom-1 after:h-0.5 after:bg-foreground after:opacity-0 hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-[current=page]:text-foreground aria-[current=page]:after:opacity-100 [&amp;_svg]:size-4 [&amp;_svg]:shrink-0";
 
+const NAV_CLASS =
+  "overflow-x-auto border-b border-border data-overflow-start:mask-l-from-[calc(100%---spacing(8))] data-overflow-end:mask-r-from-[calc(100%---spacing(8))]";
+
 const TABS = [
   { key: "open", label: "Open", href: "?tab=open", count: 3 },
   { key: "empty", label: "Empty", href: "?tab=empty", count: 0 },
@@ -17,7 +20,7 @@ const TABS = [
 describe("TabBar", () => {
   it("renders a labelled nav of links with the line-tab classes", () => {
     expect(renderToStaticMarkup(<TabBar label="Views" tabs={[{ key: "all", label: "All", href: "/all" }]} current="all" />)).toBe(
-      `<nav aria-label="Views" data-slot="tab-bar" class="overflow-x-auto border-b border-border"><ul class="flex gap-1 pb-1"><li><a href="/all" class="${LINK_CLASS}" data-tab="all" aria-current="page">All</a></li></ul></nav>`,
+      `<nav aria-label="Views" data-slot="tab-bar" class="${NAV_CLASS}"><ul class="flex gap-1 pb-1"><li><a href="/all" class="${LINK_CLASS}" data-tab="all" aria-current="page">All</a></li></ul></nav>`,
     );
   });
 

@@ -12,6 +12,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   stays; an app's own `onOpenAutoFocus` runs first and keeps control when it prevents the default.
 - Migration: an app that focused the first field itself in `onOpenAutoFocus` (to keep a tooltip shut) drops the
   handler.
+- `TabBar` (#1477): when the tabs overflow the strip (a phone), the strip scrolls itself, never the page, so the
+  current tab is whole on load (a deep link to a late tab) and whenever `current` changes, with a fade's width of room
+  so no fade covers it; nothing moves when it is already in view. Each edge that hides tabs fades out (a static 32 px
+  mask) and is marked on the nav with `data-overflow-start` / `data-overflow-end`, so a tab cut at the edge reads as a
+  scrollable list. `TabBar` is now a client component; its props are unchanged.
+- Migration: an app that scrolled the current tab into view itself, or drew its own edge fade, drops that code.
 
 ## 0.32.0
 
