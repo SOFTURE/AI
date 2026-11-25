@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `RowActionsMenu` (#1486): a row's overflow menu. An icon-only "More actions" button (`label` for the app's words)
+  opens a `DropdownMenu` of `actions`; `destructiveAction` is last, after a separator, in the danger tone, and with
+  `confirm` opens an `AlertDialog` first and runs only on the destructive confirm, focus returning to the button.
+- `ListEntry` (#1486): a `menu` slot at the end of the actions line; the inline control and the menu button stay on
+  one line, each at least 44 px on a phone. The docs state the rules: at most one control inline, the rest in the
+  menu (a row with a single action keeps it inline); each fact once (a switch is its own state, a `ResultBadge` its own
+  icon). The phone's 44 px rule no longer stretches a switch's track into a blob: a `Switch size="touch"` keeps its
+  square beside the menu.
+- Migration: an app that built its own row overflow menu replaces it with `menu={<RowActionsMenu … />}`.
+
 ## 0.34.0
 
 - `ListEntry` (#1481): a list row with an identity and a right column. `title` and `details` (the lines under it) on

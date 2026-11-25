@@ -125,6 +125,13 @@ export {
 export { FileInput, type FileInputMessages, type FileInputMessagesOverride, type FileInputProps } from "./notion/FileInput.js";
 export { FormGrid, type FormGridColumns, type FormGridProps } from "./notion/FormGrid.js";
 export { RESULT_BADGE_ICONS, ResultBadge, type ResultBadgeProps } from "./notion/ResultBadge.js";
+export {
+  RowActionsMenu,
+  type RowActionsMenuProps,
+  type RowMenuAction,
+  type RowMenuConfirmation,
+  type RowMenuDestructiveAction,
+} from "./notion/RowActionsMenu.js";
 export { Status, type StatusProps } from "./notion/Status.js";
 export { Steps, type StepItem, type StepState, type StepsLayout, type StepsProps } from "./notion/Steps.js";
 export { TabBar, type TabBarItem, type TabBarProps } from "./notion/TabBar.js";

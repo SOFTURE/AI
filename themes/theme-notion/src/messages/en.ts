@@ -12,6 +12,7 @@ export const en = {
   },
   breadcrumb: { label: "breadcrumb", more: "More" },
   copy: { copy: "Copy", copied: "Copied" },
+  rowActions: { more: "More actions" },
   dialog: { close: "Close" },
   fileInput: { choose: "Choose a file", chooseMany: "Choose files", none: "No file chosen", count: "{count} files" },
   filterChip: { add: "Add filter" },

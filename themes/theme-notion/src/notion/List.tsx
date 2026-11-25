@@ -93,10 +93,16 @@ export type ListEntryProps = Omit<ComponentProps<"div">, "title" | "children"> &
   readonly status?: ReactNode;
   /**
    * The row's controls, under the status. They stay their own targets above the row's link, and are at least the
-   * touch target (44 px) on a phone. A control marked `data-row-wide` (an inline form that needs room) makes the right
+   * touch target (44 px) on a phone; a switch keeps its track and takes its 44 px square from `size="touch"` (with
+   * `className="md:m-0 md:h-4 md:w-[26px]"` for the plain switch on a desktop). A control marked `data-row-wide` (an inline form that needs room) makes the right
    * column take the full row width under the identity, its lines starting on the left.
    */
   readonly actions?: ReactNode;
+  /**
+   * The row's other actions behind a "More actions" button (a `RowActionsMenu`), at the end of the actions line: it
+   * stays on one line with the inline control and is at least the touch target (44 px) on a phone.
+   */
+  readonly menu?: ReactNode;
   /** The row opens this address: the title's link is stretched over the whole row, with an arrow at its right. */
   readonly href?: string;
   /** The element for the link (a router's link component); a plain `a` by default. */
@@ -112,12 +118,18 @@ function isDrawn(node: ReactNode): boolean {
  * top of the right column and its controls under it. With `href` the title is a link stretched over the whole row, so
  * the row is one box lit on hover, and an arrow sits beside the column (never on a line of its own); the column stays
  * above the link. On a phone (below `md`) the column wraps under the identity, right-aligned. Place it in a `ListItem`.
+ *
+ * Row controls: at most one control inline in `actions` (a switch, or the row's one primary action); every other
+ * action goes into `menu`, the destructive one last. A row with a single action keeps it inline and has no menu.
+ * Row state: each fact once. A switch is its own on/off state (no badge or label repeating it); a `ResultBadge`
+ * carries its own icon, so no separate state icon stands next to it.
  */
 export function ListEntry({
   title,
   details,
   status,
   actions,
+  menu,
   href,
   linkComponent: Link = "a",
   className,
@@ -125,7 +137,9 @@ export function ListEntry({
 }: ListEntryProps) {
   const hasStatus = isDrawn(status);
   const hasActions = isDrawn(actions);
-  const hasColumn = hasStatus || hasActions;
+  const hasMenu = isDrawn(menu);
+  const hasControls = hasActions || hasMenu;
+  const hasColumn = hasStatus || hasControls;
   const hasLink = href !== undefined;
   const titleClasses = "min-w-0 text-ui-medium text-foreground";
   return (
@@ -176,12 +190,23 @@ export function ListEntry({
                   {status}
                 </div>
               ) : null}
-              {hasActions ? (
+              {hasControls ? (
                 <div
                   data-slot="list-entry-actions"
-                  className="pointer-events-auto flex min-w-0 flex-wrap items-center justify-end gap-1 has-[[data-row-wide]]:flex-col has-[[data-row-wide]]:items-stretch has-[[data-row-wide]]:justify-start max-md:*:min-h-touch-target max-md:*:min-w-touch-target"
+                  className={cn(
+                    "pointer-events-auto flex min-w-0 items-center justify-end gap-1 has-[[data-row-wide]]:flex-col has-[[data-row-wide]]:items-stretch has-[[data-row-wide]]:justify-start max-md:*:not-data-[slot=switch]:min-h-touch-target max-md:*:not-data-[slot=switch]:min-w-touch-target max-md:*:data-[slot=switch]:mx-0",
+                    hasMenu ? "flex-nowrap" : "flex-wrap",
+                  )}
                 >
                   {actions}
+                  {hasMenu ? (
+                    <div
+                      data-slot="list-entry-menu"
+                      className="flex shrink-0 items-center justify-center max-md:*:min-h-touch-target max-md:*:min-w-touch-target"
+                    >
+                      {menu}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>

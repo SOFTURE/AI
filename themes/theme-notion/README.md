@@ -158,6 +158,7 @@ stages with a state, below), `Timeline` (dated entries on a vertical rail, below
 `SortableList`, `SortableItem`, `SortableHandle` and `SortableActivator` (rows reordered by dragging, below),
 `List`, `ListItem` and `ListRow` (a list of rows, compact or roomy by the page's density, below),
 `ListEntry` (a list row with an identity and a right column, its state over its controls, below),
+`RowActionsMenu` (a row's other actions behind a "More actions" button, the destructive one last and confirmed, below),
 `ListGroup` and `ListGroupHeading` (a run of rows under a heading that sticks at the top of its scroll, below),
 `MiniProgress` (a compact bar with its figure inside, for a table cell or a tile, below),
 `UpdatePrompt` (the offer to reload into a new build, for an installed app, below),
@@ -552,6 +553,40 @@ follows the list's density.
     </ListItem>
   ))}
 </List>
+```
+
+**Row controls and row state.** A row shows at most one control inline in `actions`: a switch, or the row's one
+primary action. Every other action goes into `menu`, a `RowActionsMenu` on the same line: an icon-only "More actions"
+button (its name from `label`, English by default) that opens a menu of `actions`, with `destructiveAction` last,
+after a separator, in the danger tone. Give the destructive action a `confirm` (`title`, `description`,
+`confirmLabel`, `cancelLabel`) and it opens an alert dialog first, running only on the destructive confirm; focus goes
+back to the menu button. The menu opens with Enter, Space or ArrowDown, and the arrow keys move between items. A row
+with a single action keeps it inline and has no menu. The inline control and the menu button never wrap apart, and on
+a phone each is at least the touch target (44 px): pass the switch `size="touch"` (with `className="md:m-0 md:h-4
+md:w-[26px]"` for the plain switch on a desktop), since the row never stretches a switch's track. Each fact is said once: a switch is its own on/off state, so no
+badge or label repeats it; a `ResultBadge` carries its own icon, so no separate state icon stands next to it.
+
+```tsx
+<ListEntry
+  title={hook.name}
+  details={<span>{hook.url}</span>}
+  status={<ResultBadge tone={TONE_BY_RESULT[hook.lastResult]}>{hook.lastResultLabel}</ResultBadge>}
+  actions={<Switch size="touch" className="md:m-0 md:h-4 md:w-[26px]" checked={hook.isOn} onCheckedChange={toggle} aria-label={t.hooks.enabled} />}
+  menu={
+    <RowActionsMenu
+      label={t.rows.more}
+      actions={[
+        { label: t.hooks.test, onSelect: test },
+        { label: t.hooks.replaceToken, onSelect: replaceToken },
+      ]}
+      destructiveAction={{
+        label: t.hooks.delete,
+        onSelect: remove,
+        confirm: { title: t.hooks.deleteTitle, confirmLabel: t.hooks.delete, cancelLabel: t.common.cancel },
+      }}
+    />
+  }
+/>
 ```
 
 **`ResultBadge`: a result in its tone.** A result (passed, failed, skipped, running) as a filled tag in its tone's

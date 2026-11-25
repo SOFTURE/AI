@@ -235,7 +235,13 @@ describe("ListEntry (#1481)", () => {
   it("makes the controls at least the touch target on a phone", () => {
     const actions = readClasses(readOpening(renderEntry(), "list-entry-actions"));
 
-    expect(actions).toEqual(expect.arrayContaining(["max-md:*:min-h-touch-target", "max-md:*:min-w-touch-target", "justify-end"]));
+    expect(actions).toEqual(
+      expect.arrayContaining([
+        "max-md:*:not-data-[slot=switch]:min-h-touch-target",
+        "max-md:*:not-data-[slot=switch]:min-w-touch-target",
+        "justify-end",
+      ]),
+    );
   });
 
   it("with href, stretches the title's link over the row and keeps the arrow beside the column", () => {
@@ -292,5 +298,46 @@ describe("ListEntry (#1481)", () => {
 
     expect(entry).toContain('data-run="42"');
     expect(readClasses(entry)).toContain("my-row");
+  });
+});
+
+describe("ListEntry menu (#1486)", () => {
+  function renderEntry(props: Partial<ListEntryProps>): string {
+    return renderToStaticMarkup(<ListEntry title="Webhook" {...props} />);
+  }
+
+  it("puts the menu on the actions line, after the inline control, in a slot that never shrinks", () => {
+    const html = renderEntry({
+      actions: <button type="button">Switch</button>,
+      menu: <button type="button">More</button>,
+    });
+    const actions = readOpening(html, "list-entry-actions");
+    const menu = readOpening(html, "list-entry-menu");
+
+    expect(html.indexOf("Switch")).toBeLessThan(html.indexOf('data-slot="list-entry-menu"'));
+    expect(html.indexOf(actions)).toBeLessThan(html.indexOf(menu));
+    expect(readClasses(actions)).toContain("flex-nowrap");
+    expect(readClasses(menu)).toEqual(expect.arrayContaining(["flex", "shrink-0"]));
+  });
+
+  it("draws the column for a menu alone", () => {
+    const html = renderEntry({ menu: <button type="button">More</button> });
+
+    expect(html).toContain('data-slot="list-entry-column"');
+    expect(html).toContain('data-slot="list-entry-menu"');
+  });
+
+  it("never stretches a switch on a phone, and lets a touch switch keep its square beside the menu", () => {
+    const actions = readClasses(readOpening(renderEntry({ actions: <span />, menu: <span /> }), "list-entry-actions"));
+
+    expect(actions).not.toContain("max-md:*:min-h-touch-target");
+    expect(actions).toContain("max-md:*:data-[slot=switch]:mx-0");
+  });
+
+  it("keeps the actions line wrapping when there is no menu", () => {
+    const html = renderEntry({ actions: <button type="button">Retry</button> });
+
+    expect(html).not.toContain('data-slot="list-entry-menu"');
+    expect(readClasses(readOpening(html, "list-entry-actions"))).toContain("flex-wrap");
   });
 });
