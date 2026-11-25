@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `Badge` (#1482): a badge given a palette `color` renders `data-color="<color>"` next to its `data-variant`, the way
+  `Status` names its colour, so a browser test checks a filled tag with `[data-color=red]` as it checks a status.
+  `color="none"` or no colour sets nothing; an app's own `data-color` still wins.
+- Migration: an app that added its own `data-tone` or `data-color` to its badges to test their colour drops it.
+
 ## 0.33.0
 
 - `DialogContent` and `SheetContent` (#1476): on open they focus the first form field (`input` other than hidden,

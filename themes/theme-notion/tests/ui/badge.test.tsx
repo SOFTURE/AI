@@ -1,8 +1,10 @@
+import { X } from "lucide-react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { PALETTE_COLORS } from "../../src/notion/palette.js";
 
+import { Status } from "../../src/notion/Status.js";
 import { Badge } from "../../src/ui/badge.js";
 
 describe("Badge", () => {
@@ -64,4 +66,52 @@ describe("Badge", () => {
       expect(html).toMatch(/class="[^"]*\bwhitespace-nowrap\b/);
     },
   );
+
+  it.each(PALETTE_COLORS)("names its %s colour in data-color, next to its variant", (color) => {
+    const html = renderToStaticMarkup(
+      <Badge variant="tag" color={color}>
+        Passed
+      </Badge>,
+    );
+
+    expect(html).toContain(`data-color="${color}"`);
+    expect(html).toContain('data-variant="tag"');
+  });
+
+  it.each([undefined, null, "none"] as const)("sets no data-color with color %s", (color) => {
+    const html = renderToStaticMarkup(
+      <Badge variant="tag" color={color}>
+        Passed
+      </Badge>,
+    );
+
+    expect(html).not.toContain("data-color");
+  });
+
+  it("lets a caller's own data-color win", () => {
+    const html = renderToStaticMarkup(
+      <Badge variant="tag" color="red" data-color="green">
+        Passed
+      </Badge>,
+    );
+
+    expect(html).toContain('data-color="green"');
+    expect(html).not.toContain('data-color="red"');
+  });
+
+  it("names a colour the same way as Status", () => {
+    const badge = renderToStaticMarkup(
+      <Badge variant="tag" color="red">
+        Failed
+      </Badge>,
+    );
+    const status = renderToStaticMarkup(
+      <Status color="red" icon={X}>
+        Failed
+      </Status>,
+    );
+
+    expect(badge).toContain('data-color="red"');
+    expect(status.match(/data-color="red"/g)).toHaveLength(1);
+  });
 });

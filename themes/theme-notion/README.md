@@ -109,6 +109,9 @@ name outside a `CommandDialog`; without it the field has none), `SortableList in
   does not fit ends in an ellipsis while the icon keeps its size, and the full word is the badge's `title` when it is
   a string or a number (pass `title` for any other node). A plain `Badge` clips its text at the end; wrap the
   text in `<span className="min-w-0 truncate">` for an ellipsis.
+- A badge names its colour and variant in attributes, so a browser test checks them without parsing classes: a
+  `Badge` with a palette `color` renders `data-color="<color>"` next to `data-variant` (none for `color="none"`), and
+  a `Status` renders `data-color` the same way (`[data-slot=badge][data-color=red]`).
 - Installed on a phone's home screen (`viewport-fit=cover`), the parts at a screen edge pad by the screen's
   safe-area insets on the edges they touch: `SheetContent` (every `side`, its close button too), the `Sidebar` on a
   phone, the popper `SelectContent` (its height stops short of the inset it opens towards) and `PageFrame`. The insets
