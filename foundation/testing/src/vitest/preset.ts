@@ -3,7 +3,7 @@
 //
 //   export default mergeConfig(softureVitestConfig(), defineConfig({ test: { include: ["tests/**/*.test.ts"] } }));
 import { readFileSync } from "node:fs";
-import type { Plugin, ViteUserConfig } from "vitest/config";
+import { configDefaults, type Plugin, type TestProjectInlineConfiguration, type ViteUserConfig } from "vitest/config";
 import { pinTestTimeZone } from "./time-zone.js";
 
 export interface SoftureVitestOptions {
@@ -13,16 +13,34 @@ export interface SoftureVitestOptions {
   inline?: readonly (string | RegExp)[];
   /** `false` leaves out the clock setup file, for an app that imports it from its own setup file. */
   setupFile?: boolean;
+  /**
+   * `true` splits the tests into two projects: `dom` runs `*.dom.test.*` files in happy-dom with the DOM setup file,
+   * `node` runs every other test. Needs the optional peers `happy-dom`, `@testing-library/react`,
+   * `@testing-library/dom` and `@testing-library/user-event`.
+   */
+  dom?: boolean;
 }
 
 /** The setup file the preset lists: pins the time zone and shifts the clock to `TEST_TODAY`. */
 export const VITEST_SETUP_FILE = "@softure-ai/testing/vitest-setup";
 
+/** The setup file of the `dom` project: unmounts what a test rendered after each test. */
+export const VITEST_DOM_SETUP_FILE = "@softure-ai/testing/vitest-dom-setup";
+
+/** The files the `dom` project runs: `menu.dom.test.tsx`, `form.dom.test.ts`. */
+export const DOM_TEST_PATTERN = "**/*.dom.test.?(c|m)[jt]s?(x)";
+
+// Projects inherit the app's `include` and add their own to it, so the `dom` project narrows the inherited list with
+// an `exclude` of every other script file. The extension anchors it to files: without it the pattern matches folder
+// names too and prunes the whole tree.
+const NOT_DOM_TEST_PATTERN = "**/!(*.dom.test).?(c|m)[jt]s?(x)";
+
 /**
  * Pins the test time zone (in the main process, so it holds in every pool) and returns the config:
  * Vitest transforms the `@softure-ai/*` packages (they ship ESM that imports `next/*` without
  * extensions), `server-only` and `client-only` load as empty modules, `next/font/google` and
- * `next/font/local` return stub fonts, and the clock setup file runs before the tests.
+ * `next/font/local` return stub fonts, and the clock setup file runs before the tests. With `dom`, `*.dom.test.*`
+ * files run in happy-dom.
  */
 export function softureVitestConfig(options: SoftureVitestOptions = {}): ViteUserConfig {
   pinTestTimeZone(options.timeZone);
@@ -31,8 +49,26 @@ export function softureVitestConfig(options: SoftureVitestOptions = {}): ViteUse
     test: {
       server: { deps: { inline: [/@softure-ai\//, ...(options.inline ?? [])] } },
       ...(options.setupFile === false ? {} : { setupFiles: [VITEST_SETUP_FILE] }),
+      ...(options.dom === true ? { projects: getDomProjects() } : {}),
     },
   };
+}
+
+/** The `node` and `dom` projects of `dom: true`; both extend the config that lists them. */
+function getDomProjects(): TestProjectInlineConfiguration[] {
+  return [
+    { extends: true, test: { name: "node", exclude: [...configDefaults.exclude, "**/*.dom.test.*"] } },
+    {
+      extends: true,
+      test: {
+        name: "dom",
+        environment: "happy-dom",
+        include: [DOM_TEST_PATTERN],
+        exclude: [...configDefaults.exclude, NOT_DOM_TEST_PATTERN],
+        setupFiles: [VITEST_DOM_SETUP_FILE],
+      },
+    },
+  ];
 }
 
 const PREFIX = "\0softure-ai-stub:";
