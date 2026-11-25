@@ -148,67 +148,144 @@ describe("FoldRow size", () => {
 });
 
 describe("FoldRow actions", () => {
-  function readActionsClasses(html: string): string[] {
-    return (/<div data-slot="fold-row-actions" class="([^"]+)"/.exec(html)?.[1] ?? "").split(" ");
+  function readSlotClasses(html: string, slot: string): string[] {
+    return (new RegExp(`data-slot="${slot}"[^>]* class="([^"]+)"`).exec(html)?.[1] ?? "").split(" ");
   }
 
-  it("draws the actions beside the details, outside the summary, and moves the border to the wrapper", () => {
+  it("lays the details and the action column out as one bar, with the opened content in the row below", () => {
     const html = renderToStaticMarkup(
       <FoldRow title="clip.mp4" badges={[]} actions={<button type="button">Delete</button>}>
         <p>More</p>
       </FoldRow>,
     );
 
-    expect(html.startsWith('<div data-slot="fold-row-with-actions" class="group/fold-row-with-actions flex items-start border-b border-border">')).toBe(true);
+    expect(html.startsWith('<div data-slot="fold-row-with-actions" class="group/fold-row-with-actions grid grid-cols-1 border-b border-border md:grid-cols-[minmax(0,1fr)_auto]">')).toBe(true);
     expect(readAttribute(html, "data-slot")).toEqual([
       "fold-row-with-actions",
       "fold-row",
       "fold-row-summary",
       "fold-row-heading",
-      "fold-row-content",
       "fold-row-actions",
+      "fold-row-action-list",
+      "fold-row-content",
     ]);
-    expect(html).toContain('<details data-slot="fold-row" class="group/fold-row peer/fold-row min-w-0 flex-1">');
-    expect(html).toMatch(/<\/details><div data-slot="fold-row-actions"[^>]*><button type="button">Delete<\/button><\/div><\/div>$/);
+    // The details holds only its summary, so its box is the summary's and the column stretches to it.
+    expect(html).toMatch(/<details data-slot="fold-row"[^>]*><summary[\s\S]*<\/summary><\/details><div data-slot="fold-row-actions"/);
     expect(/<summary[\s\S]*<\/summary>/.exec(html)?.[0]).not.toContain("Delete");
-    expect(readTextNodes(html)).toEqual(["clip.mp4", "More", "Delete"]);
+    expect(html).toMatch(/<div data-slot="fold-row-action-list"[^>]*><button type="button">Delete<\/button><\/div><\/div><div data-slot="fold-row-content"/);
+    expect(readTextNodes(html)).toEqual(["clip.mp4", "Delete", "More"]);
   });
 
-  it("centres the actions on the row height, or on the touch target at the touch size", () => {
-    const row = readActionsClasses(renderToStaticMarkup(<FoldRow title="a" badges={[]} actions="x" />));
-    const touch = readActionsClasses(renderToStaticMarkup(<FoldRow title="a" badges={[]} actions="x" size="touch" />));
+  it("shows the opened content only while the details is open, across the whole row", () => {
+    const html = renderToStaticMarkup(
+      <FoldRow title="a" badges={[]} actions="x">
+        <p>More</p>
+      </FoldRow>,
+    );
+    const inset = renderToStaticMarkup(<FoldRow title="a" badges={[]} actions="x" isInset />);
 
-    const bar = [
-      "flex",
-      "shrink-0",
-      "items-center",
-      "gap-1",
-      "rounded-r-md",
+    expect(readSlotClasses(html, "fold-row-content")).toEqual([
+      "col-span-full",
+      "hidden",
+      "flex-col",
+      "gap-2",
+      "px-2",
+      "py-3",
+      "peer-open/fold-row:not-empty:flex",
+    ]);
+    expect(readSlotClasses(inset, "fold-row-content")).toEqual([
+      "col-span-full",
+      "hidden",
+      "flex-col",
+      "gap-2",
+      "py-2",
       "pr-2",
+      "pl-8",
+      "peer-open/fold-row:not-empty:flex",
+    ]);
+    expect(inset).toContain('data-inset="true"');
+  });
+
+  it("stretches the action column to the bar and stacks it under the summary on a phone", () => {
+    const column = readSlotClasses(renderToStaticMarkup(<FoldRow title="a" badges={[]} actions="x" />), "fold-row-actions");
+    const touch = readSlotClasses(renderToStaticMarkup(<FoldRow title="a" badges={[]} actions="x" size="touch" />), "fold-row-actions");
+
+    expect(column).toEqual([
+      "flex",
+      "flex-wrap",
+      "items-center",
+      "gap-2",
+      "rounded-b-md",
+      "pr-2",
+      "pb-1",
+      "pl-8",
       "transition-colors",
       "duration-120",
       "group-hover/fold-row-with-actions:bg-accent",
       "peer-open/fold-row:bg-accent",
-    ];
-    expect(row).toEqual([...bar, "min-h-row-height"]);
-    expect(touch).toEqual([...bar, "min-h-touch-target"]);
+      "md:flex-col",
+      "md:flex-nowrap",
+      "md:items-end",
+      "md:justify-center",
+      "md:gap-1",
+      "md:rounded-b-none",
+      "md:rounded-r-md",
+      "md:py-1",
+      "md:pl-0",
+    ]);
+    // No fixed height: the grid row sets it, whatever the size.
+    expect(touch).toEqual(column);
   });
 
-  it("runs the summary's bar under the actions: lit by the open row and by hovering anywhere in the row", () => {
-    const summaryClasses = (html: string) =>
-      (/<summary data-slot="fold-row-summary" class="([^"]+)"/.exec(html)?.[1] ?? "").split(" ");
-    const withActions = summaryClasses(renderToStaticMarkup(<FoldRow title="a" badges={[]} actions="x" />));
-    const plain = summaryClasses(renderToStaticMarkup(<FoldRow title="a" badges={[]} />));
+  it("makes each action at least the touch target on a phone", () => {
+    const html = renderToStaticMarkup(<FoldRow title="a" badges={[]} actions="x" />);
 
-    expect(withActions).toContain("group-open/fold-row:bg-accent");
-    expect(withActions.slice(-2)).toEqual(["rounded-r-none", "group-hover/fold-row-with-actions:bg-accent"]);
-    expect(plain).not.toContain("rounded-r-none");
-    expect(plain).not.toContain("group-hover/fold-row-with-actions:bg-accent");
-    expect(plain).toContain("rounded-md");
+    expect(readSlotClasses(html, "fold-row-action-list")).toEqual([
+      "flex",
+      "items-center",
+      "gap-1",
+      "max-md:*:min-h-touch-target",
+      "max-md:*:min-w-touch-target",
+    ]);
   });
 
-  it("keeps the plain row with its own border when the actions are null", () => {
-    const html = renderToStaticMarkup(<FoldRow title="a" badges={[]} actions={null} />);
+  it("draws the status above the actions, and the column for a status alone", () => {
+    const both = renderToStaticMarkup(<FoldRow title="a" badges={[]} status={<span>Paid</span>} actions={<button type="button">Delete</button>} />);
+    const statusOnly = renderToStaticMarkup(<FoldRow title="a" badges={[]} status="Paid" />);
+
+    expect(both).toMatch(
+      /<div data-slot="fold-row-actions"[^>]*><div data-slot="fold-row-status" class="flex items-center"><span>Paid<\/span><\/div><div data-slot="fold-row-action-list"[^>]*><button type="button">Delete<\/button><\/div><\/div>/,
+    );
+    expect(statusOnly.startsWith('<div data-slot="fold-row-with-actions"')).toBe(true);
+    expect(statusOnly).toMatch(/<div data-slot="fold-row-actions"[^>]*><div data-slot="fold-row-status"[^>]*>Paid<\/div><\/div>/);
+    expect(statusOnly).not.toContain("fold-row-action-list");
+  });
+
+  it("lights the details and the column as one box: open, or hovered anywhere in the row", () => {
+    const html = renderToStaticMarkup(<FoldRow title="a" badges={[]} actions="x" />);
+    const summary = readSlotClasses(html, "fold-row-summary");
+
+    expect(readSlotClasses(html, "fold-row")).toEqual([
+      "group/fold-row",
+      "peer/fold-row",
+      "min-w-0",
+      "rounded-md",
+      "transition-colors",
+      "duration-120",
+      "group-hover/fold-row-with-actions:bg-accent",
+      "open:bg-accent",
+      "max-md:rounded-b-none",
+      "md:rounded-r-none",
+    ]);
+    // The details carries the light, so the summary has none of its own.
+    expect(summary).not.toContain("hover:bg-accent");
+    expect(summary).not.toContain("group-open/fold-row:bg-accent");
+    expect(summary).toContain("focus-visible:ring-2");
+    expect(readSlotClasses(renderToStaticMarkup(<FoldRow title="a" badges={[]} />), "fold-row-summary")).toContain("hover:bg-accent");
+  });
+
+  it("keeps the plain row with its own border when the actions and the status are null", () => {
+    const html = renderToStaticMarkup(<FoldRow title="a" badges={[]} actions={null} status={null} />);
 
     expect(html.startsWith('<details data-slot="fold-row" class="group/fold-row border-b border-border">')).toBe(true);
     expect(html).not.toContain("fold-row-actions");
@@ -221,6 +298,6 @@ describe("FoldRow actions", () => {
 
     expect(open.startsWith('<details data-slot="fold-row" open="" class="group/fold-row border-b border-border">')).toBe(true);
     expect(closed).not.toMatch(/<details[^>]* open/);
-    expect(withActions).toContain('<details data-slot="fold-row" open="" class="group/fold-row peer/fold-row min-w-0 flex-1">');
+    expect(withActions).toContain('<details data-slot="fold-row" open="" class="group/fold-row peer/fold-row min-w-0 ');
   });
 });

@@ -219,11 +219,13 @@ horizontal inset (`px-2`; the content is padded 12 px top and bottom, `py-3`), s
 `StatsFold`. A row with a summary of its own (icons, a status) passes `summary`,
 drawn after the chevron in place of `title`, `facts` and `badges`; `details` and `detailsLabel` are optional together,
 so the content can be several tables or a list. `size="touch"` makes the summary at least the `touch-target` height
-(44 px) instead of the row height, for a phone list. `actions` puts controls on the row's right (a delete button,
-a menu), beside the `<details>` rather than inside its `<summary>`, so clicking one never folds the row; they show
-whether the row is open or closed, centred on the summary's first line. They sit at the right end of the row's bar:
-the summary's background runs under them when the row is open or hovered, so the bar reads as one. The row's bottom
-border moves to the wrapper (`data-slot="fold-row-with-actions"`). `isOpenInitially` renders the row open (`<details open>`), for the row the
+(44 px) instead of the row height, for a phone list. `actions` puts controls in a right column of the row's bar (a
+delete button, a menu), beside the `<details>` rather than inside its `<summary>`, so clicking one never folds the row;
+`status` puts the item's status above them in the same column. The column spans the summary's full height however
+many lines it wraps to, and the summary and the column light as one box when the row is open or hovered. Below `md`
+the column falls under the summary and each action is at least 44 px. With a column the row is a grid
+(`data-slot="fold-row-with-actions"`, which carries the bottom border) and the opened content sits under the whole bar
+as the details' sibling, shown while it is open. `isOpenInitially` renders the row open (`<details open>`), for the row the
 address points at; only the first render reads it, and the reader can still fold the row.
 
 ```tsx
@@ -231,7 +233,7 @@ address points at; only the first render reads it, and the reader can still fold
 <FoldRow summary={<><Receipt aria-hidden="true" className="size-4" /> Invoice 12/2026 <Badge>Paid</Badge></>}>
   <InvoiceLines />
 </FoldRow>
-<FoldRow title="clip.mp4" badges={[]} actions={<DeleteButton />} />
+<FoldRow title="clip.mp4" badges={[]} status={<Status color="green">Paid</Status>} actions={<DeleteButton />} />
 ```
 
 **`FilterChip`.** The filters above a list or a table, drawn the way a Notion database view draws them: a 24 px pill

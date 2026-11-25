@@ -12,6 +12,15 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   at the new inset (`py-2 pr-2 pl-8`, was `py-2 pr-1 pl-6`).
 - Migration: an app that aligned the row itself
   (`[&_[data-slot=fold-row-summary]]:px-2 [&_[data-slot=fold-row-content]]:px-2` on the row) drops the override.
+- `FoldRow` (#1471): the right column of a row with `actions` spans the summary's full height and lights with it as one
+  box, open or hovered, however many lines the summary wraps to (it used to stop under the control). A new `status`
+  prop draws a status above the actions in that column (`data-slot="fold-row-status"`; a status alone draws the
+  column too); the actions sit in `data-slot="fold-row-action-list"`. Below `md` the column falls under the summary
+  and each action is at least 44 px. With a column, the row is a grid and the opened content is the details' sibling
+  under the whole bar (shown while the row is open), so find-in-page no longer opens a closed row with actions.
+- Migration: an app that wrapped `FoldRow` to put a status above its action and light both as one box passes
+  `status` and `actions` instead and drops the wrapper. Selectors that looked for `fold-row-content` inside the
+  `<details>` of a row with actions look in `fold-row-with-actions` instead.
 
 ## 0.31.0
 
