@@ -112,7 +112,8 @@ describe("the dom preset in a Vitest run", () => {
 
   it("runs *.dom.test files in happy-dom with user-event and every other test in node", async () => {
     const env = { ...process.env, TEST_TZ: "", TZ: "", TEST_TODAY: "" };
-    const { stdout } = await run(join(REPO_ROOT, "node_modules/.bin/vitest"), ["run", "--root", dir, "--reporter=verbose", "--sequence.shuffle=false"], {
+    // CI exports FORCE_COLOR, which draws the project names as coloured badges; the assertions read `|dom|`.
+    const { stdout } = await run(join(REPO_ROOT, "node_modules/.bin/vitest"), ["run", "--root", dir, "--reporter=verbose", "--sequence.shuffle=false", "--no-color"], {
       cwd: dir,
       env,
     });
