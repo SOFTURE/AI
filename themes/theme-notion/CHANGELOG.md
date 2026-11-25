@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.32.0
 
 - `FoldRow` (#1463): the bar and its opened content share one 8 px horizontal inset. The summary is padded `px-2`
   (was `px-1`), the opened content `px-2 py-3` (was `p-3`), so the chevron and the details table start at the same x;
