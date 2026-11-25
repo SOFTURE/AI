@@ -1,7 +1,7 @@
 ---
 change_id: theme-notion-list-entry
 title: "theme-notion: ListEntry with a right column (state on top, actions under it) and a ResultBadge on the tones (issue #1481)"
-status: open
+status: impl_reviewed
 roadmap_item: null
 issue: 1481
 branch: claude/project-thread-9mzcvx

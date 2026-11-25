@@ -40,5 +40,16 @@ side take the full width and its lines start on the left (`has-[[data-row-wide]]
 - Released as a minor (new exports, nothing breaks dependent ranges) by whichever theme-notion thread merges last.
 
 ## Progress
-- [ ] Phase 1: ListEntry and ResultBadge
-- [ ] Phase 2: Design System artifact
+- [x] Phase 1: ListEntry and ResultBadge (eight new ListEntry tests and six ResultBadge tests red before the code;
+  after: `npx vitest run themes/theme-notion` 1371 tests passed; typecheck, ESLint and the language gate passed; the
+  two new Chromium measurements in `visual/fit.spec.ts` pass in all four projects: the badge's right edge equals the
+  column's and the controls', the badge ends above the first control, the arrow sits on the column's line beside it,
+  on desktop the side starts right of the identity and at 390 px below it with 44 x 44 px controls; a click on Retry
+  keeps the address, a click on the arrow's spot opens `#deploy-42`; a `data-row-wide` form starts at the identity's
+  left and ends at the row's right. `npm run test:visual` 204 passed with the four `gallery.png` baselines updated for
+  the new `ListEntry`, `ListEntry[wide]` and `ResultBadge` cases (the sandbox's Chromium 1243 headless shell; no other
+  baseline moved). Desktop and 390 px screenshots of the cases looked at) 27f1445
+- [x] Phase 2: Design System artifact (version 84: a `ListEntry`/`ResultBadge` module appended to `bundle.js` with the
+  package's class strings, 22 missing rules appended to `bundle.css` as a trailing `@layer utilities{}`, types in
+  `index.d.ts`, the List card extended, a new ResultBadge card; both previews rendered in Chromium at 900 and 390 px
+  with no console error and matching the gallery)
