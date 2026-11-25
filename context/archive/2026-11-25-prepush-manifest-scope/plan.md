@@ -16,4 +16,7 @@ tests (unchanged); a full-suite file → `getTestScope` of the CI with the lockf
   release bump commit prints the narrowed paths.
 
 ## Progress
-- [ ] Phase 1: CI scope for manifest changes
+- [x] Phase 1: CI scope for manifest changes (8 new tests red before the change; after:
+  `npx vitest run tests/repo/test-gates.test.ts` 19 passed; typecheck, lint and language pass) 2213ebb. Dry run of
+  `getPushTestScope` on real release commits of master: host@0.2.0 → `tests/ tools/host/`; deploy@0.7.9 → `tests/`
+  plus 4 package folders; jobs@0.1.15 → `tests/` plus 16 dependents; each one ran the full suite before.

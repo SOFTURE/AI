@@ -1,12 +1,13 @@
 ---
 change_id: prepush-manifest-scope
 title: "Pre-push runs the CI test scope, not the full suite, when a manifest or lockfile changes"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/project-thread-eoqb7d
 created: 2026-11-25
 updated: 2026-11-25
+archived_at: 2026-11-25
 ---
 
 ## Intent
@@ -38,3 +39,10 @@ migrations, test setup, tool config). CI already narrows the same change to the 
 
 ## Notes
 - frame skipped: the problem and its measured cost are known (memory of the CI analysis, 2026-11-25).
+
+## Done
+`npm run test:changed` (pre-push) runs the CI test scope when a manifest, lockfile, migration, test setup or tool
+config changed: the reached package folders, their dependents and `tests/`; the whole suite only for a shared root
+file, a repository tool in the lockfile or a failure. A release bump of a leaf package (host@0.2.0) now runs
+`tests/ tools/host/` instead of the full suite. Tests in `tests/repo/test-gates.test.ts`; `lefthook.yml` and AGENTS.md
+describe it. The `@softure-ai/config` preset is unchanged, so no release.
