@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `TabBar` (#1477): when the tabs overflow the strip (a phone), the strip scrolls itself, never the page, so the
+  current tab is whole on load (a deep link to a late tab) and whenever `current` changes; nothing moves when it is
+  already in view. Each edge that hides tabs fades out (a static 32 px mask) and is marked on the nav with
+  `data-overflow-start` / `data-overflow-end`, so a tab cut at the edge reads as a scrollable list. `TabBar` is now a
+  client component; its props are unchanged.
+- Migration: an app that scrolled the current tab into view itself, or drew its own edge fade, drops that code.
+
 ## 0.32.0
 
 - `FoldRow` (#1463): the bar and its opened content share one 8 px horizontal inset. The summary is padded `px-2`

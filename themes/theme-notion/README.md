@@ -171,7 +171,9 @@ and zoom; one row per document with its type, size and an "available offline" ma
 (`DropdownMenuContent size="touch"`, or `size="touch"` on a `DropdownMenuItem`, `DropdownMenuCheckboxItem`,
 `DropdownMenuRadioItem` or `DropdownMenuSubTrigger`) and the tabs (`TabsList size="touch"` grows to its triggers,
 each at least 44 × 44, or `TabsTrigger size="touch"`). `TabBar size="touch"` draws every tab link at least 44 × 44 (`data-size="touch"`), and its
-`tabClassName` goes on every link after the size (`tabClassName="md:h-control-height md:min-w-0"` on a desktop). `Switch size="touch"` is a 44 × 44 square that draws the same 26 × 16 track
+`tabClassName` goes on every link after the size (`tabClassName="md:h-control-height md:min-w-0"` on a desktop). When its tabs overflow the strip (a phone), `TabBar` scrolls the strip itself, never the page, so the current tab is
+whole on load and whenever `current` changes, and fades each edge that hides tabs (`data-overflow-start`,
+`data-overflow-end` on the nav, a static 32 px mask, so nothing moves under reduced motion). `Switch size="touch"` is a 44 × 44 square that draws the same 26 × 16 track
 inside it and keeps the track's place in the layout (negative margins), so a phone taps the whole square; `className="md:m-0
 md:h-4 md:w-[26px]"` brings the plain switch back on a desktop. `AccordionTrigger size="touch"` is at least 44 px high
 whatever its padding, and `DialogContent closeButtonSize="touch"` draws the close button 44 × 44 around the same

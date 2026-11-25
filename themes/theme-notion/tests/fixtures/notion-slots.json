@@ -1914,7 +1914,7 @@
     ["switch-thumb","pointer-events-none block rounded-full bg-background ring-0 transition-transform group-data-[size=default]/switch:size-3 group-data-[size=sm]/switch:size-2.5 data-[state=checked]:translate-x-[10px] data-[state=unchecked]:translate-x-0 shadow-[0_1px_2px_rgba(15,15,15,0.2)]"]
   ],
   "TabBar": [
-    ["tab-bar","overflow-x-auto border-b border-border"],
+    ["tab-bar","overflow-x-auto border-b border-border data-overflow-start:mask-l-from-[calc(100%---spacing(8))] data-overflow-end:mask-r-from-[calc(100%---spacing(8))]"],
     ["tab-bar-count","rounded-xs bg-accent px-1 text-small text-muted-foreground tabular-nums"],
     ["tab-bar-count","rounded-xs bg-accent px-1 text-small text-muted-foreground tabular-nums"]
   ],
