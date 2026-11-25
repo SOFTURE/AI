@@ -17,6 +17,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   (`motion-safe:animate-spin`) for a run in progress.
 - Migration: an app that built its own list row with a state/actions column and a stretched title link, or its own
   result badge on the tones, replaces them with `ListEntry` and `ResultBadge`.
+- `Badge` (#1482): a badge given a palette `color` renders `data-color="<color>"` next to its `data-variant`, the way
+  `Status` names its colour, so a browser test checks a filled tag with `[data-color=red]` as it checks a status.
+  `color="none"` or no colour sets nothing; an app's own `data-color` still wins.
+- Migration: an app that added its own `data-tone` or `data-color` to its badges to test their colour drops it.
 
 ## 0.33.0
 

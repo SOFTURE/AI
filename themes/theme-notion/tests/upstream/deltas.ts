@@ -121,6 +121,11 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "}: Omit<React.ComponentProps<\"span\">, \"color\"> &",
     },
     {
+      reason: "badge: names its palette colour in `data-color`, as Status does (#1482)",
+      upstream: "      data-variant={variant}\n",
+      ours: "      data-variant={variant}\n      data-color={color === \"none\" ? undefined : (color ?? undefined)}\n",
+    },
+    {
       reason: "badge: the `color` prop reaches the variants",
       upstream: "      className={cn(badgeVariants({ variant }), className)}",
       ours: "      className={cn(badgeVariants({ variant, color }), className)}",

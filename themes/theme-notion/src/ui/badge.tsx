@@ -76,6 +76,7 @@ function Badge({
     <Comp
       data-slot="badge"
       data-variant={variant}
+      data-color={color === "none" ? undefined : (color ?? undefined)}
       className={cn(badgeVariants({ variant, color }), className)}
       {...props}
     />

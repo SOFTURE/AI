@@ -121,7 +121,7 @@ describe("StatCards", () => {
 
     expect(html).toContain('data-tone="danger" class="mt-1 text-heading-3 whitespace-nowrap tabular-nums text-red"');
     expect(html).toContain('<div class="mt-1 text-small text-muted-foreground">2 invoices</div>');
-    expect(html).toMatch(/<span data-slot="stat-card-aside" data-variant="tag" class="[^"]*bg-green-tag[^"]*" data-tone="success">\+5%<\/span>/);
+    expect(html).toMatch(/<span data-slot="stat-card-aside" data-variant="tag" data-color="green" class="[^"]*bg-green-tag[^"]*" data-tone="success">\+5%<\/span>/);
   });
 
   it("draws an aside without a tone as the default tag", () => {
@@ -129,7 +129,7 @@ describe("StatCards", () => {
       <StatCards label="Totals" cards={[{ key: "n", label: "Count", value: "4", aside: { text: "new" } }]} />,
     );
 
-    expect(html).toMatch(/data-slot="stat-card-aside" data-variant="tag" class="[^"]*bg-default-tag[^"]*" data-tone="default"/);
+    expect(html).toMatch(/data-slot="stat-card-aside" data-variant="tag" data-color="default" class="[^"]*bg-default-tag[^"]*" data-tone="default"/);
   });
 });
 
