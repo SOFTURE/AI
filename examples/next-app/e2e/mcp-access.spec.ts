@@ -111,6 +111,7 @@ test("a user issues a write token and an MCP client calls the tools with it, unt
   await expect(item).toContainText(mcpCopy.list.readWrite);
   await expect(item).toContainText(formatMessage(mcpCopy.list.lastUsed, { date: "" }).trim());
   await item.getByRole("button", { name: `${mcpCopy.list.revoke}: E2E laptop` }).click();
+  await page.getByRole("dialog", { name: formatMessage(mcpCopy.list.confirmTitle, { name: "E2E laptop" }) }).getByRole("button", { name: mcpCopy.list.revoke }).click();
   await expect(page.getByText(mcpCopy.list.empty)).toBeVisible();
   expect((await callMcp(request, token, "tools/list")).status).toBe(401);
 });

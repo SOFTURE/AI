@@ -28,7 +28,7 @@ limit check made race-free.
 - A token page for the signed-in user: the app's tool catalog, an issue form, the new token with its
   setup (a prompt for Claude Code and a `claude-cli://` link, the `claude mcp add` command, an
   `mcpServers` file, Claude Desktop through `mcp-remote`, the header), and the user's tokens with
-  their status (active, expiring in n days, expired), last use and a revoke button.
+  their status (active, expiring in n days, expired), last use and a revoke button that asks for confirmation first.
 - **OAuth 2.1** (`oauth.enabled`, off by default), as the MCP authorization spec asks for it:
   - a `401` from the endpoint names the protected resource metadata (`resource_metadata` in the
     challenge, RFC 9728), which points at the authorization server metadata (RFC 8414);
@@ -741,6 +741,31 @@ and the connected apps as tabs:
   <TabsContent value="tokens"><TokenManager {...props} sections={["tokens"]} {...actions} /></TabsContent>
   <TabsContent value="grants"><TokenManager {...props} sections={["grants"]} {...actions} /></TabsContent>
 </Tabs>
+```
+
+Revoke and Disconnect ask first: a confirmation dialog (`Modal` of `@softure-ai/ui`, width `confirmation`) titled
+with the token's or app's name (`list.confirmTitle`, `grants.confirmTitle`), one line on the effect
+(`list.confirmText`, `grants.confirmText`), Cancel and a destructive confirm. Cancel, Escape and the backdrop keep the
+token and hand focus back to the button; a refusal stays in the dialog. An app whose destructive controls share one
+component of its own passes `confirmButton`: it gets `TokenManagerConfirmProps` (`label`, `ariaLabel`, `title`,
+`description`, `confirmLabel`, `pendingLabel`, and `onConfirm()`, which runs the action and resolves to
+`TokenManagerConfirmResult`, never rejecting) and renders the trigger and the dialog itself:
+
+```tsx
+<TokenManager
+  {...props}
+  {...actions}
+  confirmButton={(confirm) => (
+    <ConfirmActionButton
+      label={confirm.label}
+      title={confirm.title}
+      description={confirm.description}
+      confirmLabel={confirm.confirmLabel}
+      pendingLabel={confirm.pendingLabel}
+      action={confirm.onConfirm}
+    />
+  )}
+/>
 ```
 
 With `oauth.enabled`, mount the OAuth routes and the consent page too (the paths for the default

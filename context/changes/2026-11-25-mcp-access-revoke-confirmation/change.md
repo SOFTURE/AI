@@ -22,21 +22,22 @@ focus back on the trigger after Cancel, the error shown in the dialog), which th
 The parallel change for auth's invitation revoke (#1470) follows the same pattern.
 
 ## Scope
-- Token Revoke and OAuth Disconnect go through `ConfirmActionButton` (`formAction` + `fields: { id }`), the
-  `useActionState` actions adapted to `ConfirmActionResult`; an error shows the module's copy in the dialog.
+- Token Revoke and OAuth Disconnect open a confirmation dialog built on `Modal`, `ModalBody` and `ModalFooter` of
+  `@softure-ai/ui`; the server action runs with the row's id on confirm, an error shows the module's copy in the dialog.
+- Optional `confirmButton` prop: the app's own confirmation control gets `TokenManagerConfirmProps`.
 - New copy in `messages/en.ts`: dialog titles naming the token or app, one-line effects, confirm labels.
 - Tests: Revoke opens the dialog, Cancel keeps the token (no action call, focus back on the trigger), confirm
   revokes by id; the same for Disconnect; errors shown in the dialog. The example app's e2e confirm in the dialog.
 - README, CHANGELOG `Unreleased` (no version bump: releases are batched).
-- Out of scope: a prop for the app's own confirm component (the dialog is the ui primitive the app's theme styles).
 
 ## Decisions (auto)
-- Reuse `ConfirmActionButton` instead of a new dialog: it is the house destructive-action primitive, has 44 px
-  controls through the theme, and returns focus to the trigger on Cancel.
+- Compose the dialog from `Modal`/`ModalBody`/`ModalFooter` rather than `ConfirmActionButton`: the latter's trigger
+  takes no accessible name of its own, and each row's button must stay named "Revoke: <token>" (screen readers, e2e).
+  The primitives keep the theme's 44 px controls and return focus to the trigger on Cancel.
 - Disconnect of an OAuth app gets the same dialog: it is the same kind of irreversible loss of access.
 - The title names the token by its name; the row carries no token characters (only the hash is stored).
-- No custom confirm component prop (the issue's optional ask): the app styles the dialog through its ui theme and
-  `modalClassNames` already reach every destructive control the same way.
+- The issue's optional ask is taken: `confirmButton` receives the copy and an `onConfirm()` that never rejects, so an
+  app can plug `ConfirmActionButton` or its own component (README example).
 
 ## Notes
 - research skipped: the gap and the primitive that closes it are both in the repository (token-manager.tsx,

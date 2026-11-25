@@ -5,6 +5,8 @@ export {
   TOKEN_MANAGER_SECTIONS,
   TokenManager,
   type TokenManagerApiScope,
+  type TokenManagerConfirmProps,
+  type TokenManagerConfirmResult,
   type RevokeGrantAction,
   type TokenManagerGrant,
   type IssueTokenAction,
