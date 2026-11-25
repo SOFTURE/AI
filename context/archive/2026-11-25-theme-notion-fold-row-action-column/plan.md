@@ -29,8 +29,18 @@ Rows without actions or status do not change.
 - Phone: the column falls under the summary as a row (status, then the actions), indented to the title (`pl-8`), and
   each direct child of the action list is at least 44 px high and wide. The summary drops its bottom rounding and
   the column its top rounding there, so the two still read as one box.
+- The light moved from the summary to the `<details>` (rounded on the left), so a column taller than a one-line
+  summary still lights as one box with it.
+- The opened content now runs under the whole bar, including under the column (it used to stop at the column).
 - Hover stays as today: hovering anywhere in the row (bar or opened content) lights the bar.
 - Patch-level change recorded under `Unreleased`; the coordinator cuts the release together with #1463's fix.
 
 ## Progress
-- [ ] Phase 1: one bar with a status
+- [x] Phase 1: one bar with a status (six FoldRow tests red before the change; after: `npx vitest run
+  themes/theme-notion` 68 files, 1329 tests passed; typecheck and ESLint passed; `npm run test:visual -w
+  @softure-ai/theme-notion` 196 passed, the four `gallery.png` baselines updated for the new `FoldRow[actions]` case;
+  the new Chromium measurement in `visual/fit.spec.ts` passes in all four projects: with a three-line summary the
+  column's top and bottom equal the details' on desktop, the status ends above the action, hovering the summary or
+  the column lights both with the same colour, opening keeps the column on the summary; at 390 px the column starts at
+  the details' bottom and the action is 44 x 44 px. Screenshots of the row resting, hovered and open looked at)
+  2246703

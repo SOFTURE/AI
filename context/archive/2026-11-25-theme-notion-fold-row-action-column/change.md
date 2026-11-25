@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-fold-row-action-column
 title: "theme-notion: FoldRow's action column spans the whole bar and takes a status (issue #1471)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1471
 branch: claude/project-thread-c40axi
 created: 2026-11-25
 updated: 2026-11-25
+archived_at: 2026-11-25
 ---
 
 ## Intent
@@ -33,3 +34,10 @@ place for a status above the action. Related, closed: #1463 (one 8 px inset, PR 
 
 ## Notes
 - frame skipped: a reported gap with one proposed shape and acceptance criteria in the issue.
+
+## Done
+`FoldRow`'s right column (`actions`, and the new `status` above them) spans the summary's full height and lights with
+it as one box, open or hovered; below `md` it falls under the summary with 44 px actions. With a column the row is a
+grid and the opened content sits under the whole bar. Tests (red first), a Chromium measurement, the `FoldRow[actions]`
+gallery case, parity fixture, four gallery baselines, README and CHANGELOG `Unreleased`; ships in the next
+theme-notion release. An adopting app drops its local wrapper around `FoldRow`.
