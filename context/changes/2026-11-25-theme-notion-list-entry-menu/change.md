@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-list-entry-menu
 title: "theme-notion: a row overflow menu for ListEntry and the rules for row controls and row state (issue #1486)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1486
 branch: claude/project-thread-hx8or8
 created: 2026-11-25
 updated: 2026-11-25
+archived_at: 2026-11-25
 ---
 
 ## Intent
@@ -36,3 +37,13 @@ out facts).
 
 ## Notes
 - frame skipped: a reported gap with a proposed shape and acceptance criteria in the issue.
+
+## Done
+`RowActionsMenu`: an icon-only "More actions" button (name from the message layer, overridable) opening a menu of the
+row's secondary actions, the destructive one last after a separator in the danger tone, optionally confirmed in an
+alert dialog that runs it only on confirm and returns focus to the button; keyboard access measured in Chromium.
+`ListEntry` `menu` slot: the inline control and the menu button on one line under the state at 1280 and 390 px, 44 px
+on a phone; the phone rule no longer stretches a switch. The rules for row controls and row state in the JSDoc and
+README. Tests (red first), a Chromium measurement, a gallery case, parity fixture, four gallery baselines, CHANGELOG
+`Unreleased`, the Design System artifact (v85-86); ships in the next theme-notion release. An adopting app drops its
+local row overflow menu.
