@@ -1,4 +1,4 @@
-import { BedDouble, Bell, Calendar, CircleCheck, CircleDashed, FileText, Folder, House, Inbox, LogOut, Plane, Plus, Search, Settings, TrainFront, TriangleAlert, X } from "lucide-react";
+import { BedDouble, Bell, Calendar, CircleCheck, CircleDashed, FileText, Folder, House, Inbox, LogOut, Plane, Plus, Rocket, RotateCw, Search, Settings, TrainFront, TriangleAlert, X } from "lucide-react";
 import type { ReactElement } from "react";
 
 import {
@@ -199,11 +199,13 @@ import {
   List,
   ListGroup,
   ListGroupHeading,
+  ListEntry,
   ListItem,
   ListRow,
   Steps,
   StatPills,
   StatsFold,
+  ResultBadge,
   Status,
   Switch,
   TabBar,
@@ -1562,6 +1564,96 @@ const NOTION_CASES: readonly GalleryCase[] = [
       }),
     ),
   ),
+  {
+    name: "ListEntry",
+    component: "ListEntry",
+    root: '[data-gallery-list-entry]',
+    render: () => (
+      <div data-gallery-list-entry="" className="w-full max-w-lg">
+        <List aria-label="Deploys">
+          <ListItem>
+            <ListEntry
+              href="#deploy-42"
+              title="Nightly deploy of the billing service"
+              details={
+                <>
+                  <span>main · 4c1e2a9</span>
+                  <span>Started 4 min ago by the scheduler</span>
+                </>
+              }
+              status={<ResultBadge tone="danger">Failed</ResultBadge>}
+              actions={
+                <>
+                  <Button variant="ghost" size="icon-sm" aria-label="Retry">
+                    <RotateCw />
+                  </Button>
+                  <Button variant="ghost" size="icon-sm" aria-label="Delete">
+                    <X />
+                  </Button>
+                </>
+              }
+            />
+          </ListItem>
+          <ListItem>
+            <ListEntry
+              title="Weekly backup"
+              details={<span>Every Sunday at 03:00</span>}
+              status={
+                <>
+                  <ResultBadge tone="muted" isSpinning>
+                    Running
+                  </ResultBadge>
+                  <ResultBadge tone="success">Verified</ResultBadge>
+                </>
+              }
+            />
+          </ListItem>
+        </List>
+      </div>
+    ),
+  },
+  {
+    name: "ListEntry[wide]",
+    component: "ListEntry",
+    root: '[data-slot="list-entry"]',
+    render: () => (
+      <div className="w-full max-w-lg">
+        <ListEntry
+          title="Release theme-notion 0.34.0?"
+          details={<span>Asked 2 min ago</span>}
+          status={<ResultBadge tone="warning">Waiting</ResultBadge>}
+          actions={
+            <form data-row-wide="" className="flex flex-col gap-2" aria-label="Answer">
+              <span className="text-ui text-muted-foreground">Confirm the release with a sentence.</span>
+              <div className="flex gap-2">
+                <Button size="sm">Release</Button>
+                <Button size="sm" variant="ghost">
+                  Later
+                </Button>
+              </div>
+            </form>
+          }
+        />
+      </div>
+    ),
+  },
+  {
+    name: "ResultBadge",
+    component: "ResultBadge",
+    root: '[data-gallery-result-badges]',
+    render: () => (
+      <div data-gallery-result-badges="" className="flex flex-wrap gap-2">
+        <ResultBadge tone="success">Passed</ResultBadge>
+        <ResultBadge tone="warning">Flaky</ResultBadge>
+        <ResultBadge tone="danger">Failed</ResultBadge>
+        <ResultBadge tone="muted">Skipped</ResultBadge>
+        <ResultBadge tone="default">Queued</ResultBadge>
+        <ResultBadge tone="success" icon={Rocket}>
+          Deployed
+        </ResultBadge>
+      </div>
+    ),
+  },
   ...(["page", "tinted"] as const).map(
     (surface): GalleryCase => ({
       name: `ListGroup[surface=${surface}]`,

@@ -318,3 +318,99 @@ test("a fold row's action column spans its three-line summary and lights with it
   if (testInfo.project.name.startsWith("phone")) expect(opened.column.top).toBe(opened.details.bottom);
   else expect([opened.column.top, opened.column.bottom]).toEqual([opened.details.top, opened.details.bottom]);
 });
+
+interface EntryBox {
+  readonly left: number;
+  readonly right: number;
+  readonly top: number;
+  readonly bottom: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+// Geometry, not pixels (#1481): a ListEntry with a two-line identity, a result badge and two controls. The badge sits
+// at the right of the row above the controls, the arrow beside the column; on a phone the column wraps under the
+// identity, right-aligned, with 44 px controls, and the arrow stays on the column's line. The stretched link opens the
+// row from anywhere but the controls.
+test("a list entry keeps its state over its controls at the right and wraps them under the identity on a phone", async ({ page }, testInfo) => {
+  await page.goto(PAGE_URL);
+  await page.evaluate(() => document.fonts.ready);
+  const entry = page.locator('[data-gallery-list-entry] [data-slot="list-entry"]').first();
+  type EntryPart = "row" | "identity" | "title" | "side" | "column" | "badge" | "firstAction" | "lastAction" | "arrow" | "details";
+  const boxes = await entry.evaluate((element): Record<EntryPart, EntryBox> => {
+    const toBox = (target: Element | null, name: string): EntryBox => {
+      if (target === null) throw new Error(`no ${name} in the list entry`);
+      const { left, right, top, bottom, width, height } = target.getBoundingClientRect();
+      return { left, right, top, bottom, width, height };
+    };
+    const find = (slot: string) => element.querySelector(`[data-slot="${slot}"]`);
+    const actions = find("list-entry-actions");
+    return {
+      row: toBox(element, "row"),
+      identity: toBox(find("list-entry-identity"), "identity"),
+      title: toBox(find("list-entry-title"), "title"),
+      side: toBox(find("list-entry-side"), "side"),
+      column: toBox(find("list-entry-column"), "column"),
+      badge: toBox(find("result-badge"), "badge"),
+      firstAction: toBox(actions?.firstElementChild ?? null, "first action"),
+      lastAction: toBox(actions?.lastElementChild ?? null, "last action"),
+      arrow: toBox(find("list-entry-arrow"), "arrow"),
+      details: toBox(find("list-entry-details"), "details"),
+    };
+  });
+  const { row, identity, title, side, column, badge, firstAction, lastAction, arrow, details } = boxes;
+  const rowPadding = 8;
+
+  expect(details.height).toBeGreaterThan(title.height); // two detail lines under the title
+  expect(side.right).toBeCloseTo(row.right - rowPadding, 0);
+  expect(badge.right).toBeCloseTo(column.right, 0);
+  expect(lastAction.right).toBeCloseTo(column.right, 0);
+  expect(badge.bottom).toBeLessThanOrEqual(firstAction.top);
+  expect(arrow.left).toBeGreaterThanOrEqual(column.right);
+  // The arrow sits on the column's line, never alone on a line of its own.
+  expect(arrow.top).toBeGreaterThanOrEqual(column.top);
+  expect(arrow.bottom).toBeLessThanOrEqual(column.bottom);
+
+  if (testInfo.project.name.startsWith("phone")) {
+    expect(side.top).toBeGreaterThanOrEqual(identity.bottom);
+    expect(firstAction.height).toBeGreaterThanOrEqual(44);
+    expect(firstAction.width).toBeGreaterThanOrEqual(44);
+  } else {
+    expect(side.left).toBeGreaterThanOrEqual(identity.right);
+    expect(column.top).toBeLessThan(identity.bottom);
+  }
+
+  // A control is its own target; the gap beside the arrow opens the row.
+  await entry.getByRole("button", { name: "Retry" }).click();
+  expect(new URL(page.url()).hash).toBe("");
+  // The arrow lets clicks through (the side is pointer-events: none), so click its spot, as a reader would.
+  const arrowNow = await entry.locator('[data-slot="list-entry-arrow"]').boundingBox();
+  if (arrowNow === null) throw new Error("the list entry's arrow is not drawn");
+  await page.mouse.click(arrowNow.x + arrowNow.width / 2, arrowNow.y + arrowNow.height / 2);
+  await expect.poll(() => new URL(page.url()).hash).toBe("#deploy-42");
+});
+
+test("a data-row-wide control takes the full row width under the identity, starting on the left", async ({ page }) => {
+  await page.goto(PAGE_URL);
+  await page.evaluate(() => document.fonts.ready);
+  const entry = page.locator('[data-slot="list-entry"]:has([data-row-wide])').first();
+  const boxes = await entry.evaluate((element) => {
+    const toBox = (target: Element | null) => {
+      if (target === null) throw new Error("missing part of the wide list entry");
+      const { left, right, top, bottom } = target.getBoundingClientRect();
+      return { left, right, top, bottom };
+    };
+    return {
+      identity: toBox(element.querySelector('[data-slot="list-entry-identity"]')),
+      side: toBox(element.querySelector('[data-slot="list-entry-side"]')),
+      badge: toBox(element.querySelector('[data-slot="result-badge"]')),
+      form: toBox(element.querySelector("[data-row-wide]")),
+    };
+  });
+
+  expect(boxes.side.top).toBeGreaterThanOrEqual(boxes.identity.bottom);
+  expect(boxes.form.left).toBeCloseTo(boxes.identity.left, 0);
+  expect(boxes.badge.left).toBeCloseTo(boxes.identity.left, 0);
+  expect(boxes.form.right).toBeCloseTo(boxes.side.right, 0);
+  expect(boxes.side.left).toBeCloseTo(boxes.identity.left, 0);
+});

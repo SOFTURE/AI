@@ -72,11 +72,14 @@ export {
   ListGroup,
   ListGroupHeading,
   ListItem,
+  ListEntry,
   ListRow,
   type ListGroupHeadingProps,
   type ListGroupProps,
   type ListItemProps,
   type ListProps,
+  type ListEntryLinkComponent,
+  type ListEntryProps,
   type ListRowProps,
   type ListSurface,
 } from "./notion/List.js";
@@ -121,6 +124,7 @@ export {
 } from "./notion/Stats.js";
 export { FileInput, type FileInputMessages, type FileInputMessagesOverride, type FileInputProps } from "./notion/FileInput.js";
 export { FormGrid, type FormGridColumns, type FormGridProps } from "./notion/FormGrid.js";
+export { RESULT_BADGE_ICONS, ResultBadge, type ResultBadgeProps } from "./notion/ResultBadge.js";
 export { Status, type StatusProps } from "./notion/Status.js";
 export { Steps, type StepItem, type StepState, type StepsLayout, type StepsProps } from "./notion/Steps.js";
 export { TabBar, type TabBarItem, type TabBarProps } from "./notion/TabBar.js";

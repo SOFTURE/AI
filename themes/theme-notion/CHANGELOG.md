@@ -4,6 +4,20 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `ListEntry` (#1481): a list row with an identity and a right column. `title` and `details` (the lines under it) on
+  the left; `status` at the top of the right column and `actions` under it. With `href` (and `linkComponent` for a
+  router's link) the title's link is stretched over the whole row with an arrow beside the column, which never wraps
+  alone; the column stays above the link. Below `md` the column wraps under the identity, right-aligned, with 44 px
+  controls. A control marked `data-row-wide` makes the column take the full row width, its lines starting on the left.
+  `ListRow` is unchanged.
+- `ResultBadge` (#1481): a result as a filled tag in its tone's colour (`TONE_COLORS`), the tone's icon
+  (`RESULT_BADGE_ICONS`, overridable with `icon`) and always a word; `isSpinning` spins the icon
+  (`motion-safe:animate-spin`) for a run in progress.
+- Migration: an app that built its own list row with a state/actions column and a stretched title link, or its own
+  result badge on the tones, replaces them with `ListEntry` and `ResultBadge`.
+
 ## 0.33.0
 
 - `DialogContent` and `SheetContent` (#1476): on open they focus the first form field (`input` other than hidden,
