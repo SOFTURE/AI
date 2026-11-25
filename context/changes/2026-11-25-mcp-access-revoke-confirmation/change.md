@@ -1,7 +1,7 @@
 ---
 change_id: mcp-access-revoke-confirmation
 title: "mcp-access: TokenManager confirms a revoke in a dialog (issue #1469)"
-status: open
+status: impl_reviewed
 roadmap_item: null
 issue: 1469
 branch: claude/project-thread-9q3sxv

@@ -18,3 +18,6 @@ default a danger trigger opening a `Modal` (width `confirmation`) of `@softure-a
 - Done when: `npx vitest run modules/mcp-access` passes; typecheck and lint pass; the e2e specs updated (run in CI).
 
 ## Progress
+- [x] Phase 1: confirmation dialogs (the six new or changed dialog tests red on the old component; after:
+  `npx vitest run modules/mcp-access` 568 passed; typecheck and ESLint passed; e2e specs confirm in the dialog, run in
+  CI) 718d73dd

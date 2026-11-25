@@ -747,7 +747,7 @@ Revoke and Disconnect ask first: a confirmation dialog (`Modal` of `@softure-ai/
 with the token's or app's name (`list.confirmTitle`, `grants.confirmTitle`), one line on the effect
 (`list.confirmText`, `grants.confirmText`), Cancel and a destructive confirm. Cancel, Escape and the backdrop keep the
 token and hand focus back to the button; a refusal stays in the dialog. An app whose destructive controls share one
-component of its own passes `confirmButton`: it gets `TokenManagerConfirmProps` (`label`, `ariaLabel`, `title`,
+component of its own passes `confirmButton` (a function, so from a client component that wraps `TokenManager`): it gets `TokenManagerConfirmProps` (`label`, `ariaLabel`, `title`,
 `description`, `confirmLabel`, `pendingLabel`, and `onConfirm()`, which runs the action and resolves to
 `TokenManagerConfirmResult`, never rejecting) and renders the trigger and the dialog itself:
 
