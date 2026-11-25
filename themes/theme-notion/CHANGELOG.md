@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.33.0
 
 - `DialogContent` and `SheetContent` (#1476): on open they focus the first form field (`input` other than hidden,
   `select`, `textarea`, `[role=combobox]`, not disabled) instead of the first focusable element, so a dialog whose
