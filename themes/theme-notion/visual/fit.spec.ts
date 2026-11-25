@@ -414,3 +414,67 @@ test("a data-row-wide control takes the full row width under the identity, start
   expect(boxes.form.right).toBeCloseTo(boxes.side.right, 0);
   expect(boxes.side.left).toBeCloseTo(boxes.identity.left, 0);
 });
+
+// Geometry, not pixels (#1486): a row with a switch, a result badge and a "More actions" menu. The badge is on top of
+// the right column; the switch and the menu button share one line under it at the row's right edge, on a phone each
+// at least the 44 px touch target. The menu opens with the keyboard, the arrow keys move between its items, and the
+// destructive item, last, opens the confirmation.
+test("a list entry keeps its inline control and its menu button on one line under the state", async ({ page }, testInfo) => {
+  // The issue's desktop width; the phone projects keep their 390 px.
+  if (!testInfo.project.name.startsWith("phone")) await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(PAGE_URL);
+  await page.evaluate(() => document.fonts.ready);
+  const entry = page.locator('[data-gallery-list-entry-menu] [data-slot="list-entry"]').first();
+  const boxes = await entry.evaluate((element) => {
+    const toBox = (target: Element | null, name: string) => {
+      if (target === null) throw new Error(`no ${name} in the list entry`);
+      const { left, right, top, bottom, width, height } = target.getBoundingClientRect();
+      return { left, right, top, bottom, width, height };
+    };
+    const find = (selector: string) => element.querySelector(selector);
+    return {
+      row: toBox(element, "row"),
+      identity: toBox(find('[data-slot="list-entry-identity"]'), "identity"),
+      side: toBox(find('[data-slot="list-entry-side"]'), "side"),
+      badge: toBox(find('[data-slot="result-badge"]'), "badge"),
+      toggle: toBox(find('[data-slot="switch"]'), "switch"),
+      menu: toBox(find('[data-slot="row-actions-menu-trigger"]'), "menu button"),
+    };
+  });
+  const { row, identity, side, badge, toggle, menu } = boxes;
+  const rowPadding = 8;
+  const middle = (box: { top: number; bottom: number }) => (box.top + box.bottom) / 2;
+
+  expect(badge.bottom).toBeLessThanOrEqual(Math.min(toggle.top, menu.top));
+  expect(Math.abs(middle(toggle) - middle(menu))).toBeLessThanOrEqual(1);
+  expect(toggle.right).toBeLessThanOrEqual(menu.left);
+  expect(menu.right).toBeCloseTo(row.right - rowPadding, 0);
+  expect(badge.right).toBeCloseTo(menu.right, 0);
+
+  if (testInfo.project.name.startsWith("phone")) {
+    expect(side.top).toBeGreaterThanOrEqual(identity.bottom);
+    expect(menu.height).toBeGreaterThanOrEqual(44);
+    expect(menu.width).toBeGreaterThanOrEqual(44);
+    expect(toggle.height).toBeGreaterThanOrEqual(44);
+    expect(toggle.width).toBeGreaterThanOrEqual(44);
+  } else {
+    expect(side.left).toBeGreaterThanOrEqual(identity.right);
+  }
+
+  const trigger = entry.getByRole("button", { name: "More actions" });
+  await trigger.focus();
+  await page.keyboard.press("Enter");
+  const items = page.getByRole("menuitem");
+  await expect(items).toHaveText(["Test", "Replace token", "Copy address", "Delete"]);
+  await expect(items.first()).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(items.nth(1)).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(items.last()).toBeFocused();
+  await page.keyboard.press("Enter");
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog).toContainText("Delete this webhook?");
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(trigger).toBeFocused();
+});

@@ -206,6 +206,7 @@ import {
   StatPills,
   StatsFold,
   ResultBadge,
+  RowActionsMenu,
   Status,
   Switch,
   TabBar,
@@ -1634,6 +1635,39 @@ const NOTION_CASES: readonly GalleryCase[] = [
             </form>
           }
         />
+      </div>
+    ),
+  },
+  {
+    name: "ListEntry[menu]",
+    component: "ListEntry",
+    root: '[data-gallery-list-entry-menu]',
+    render: () => (
+      <div data-gallery-list-entry-menu="" className="w-full max-w-lg">
+        <List aria-label="Webhooks">
+          <ListItem>
+            <ListEntry
+              title="Billing events"
+              details={<span>https://hooks.example.com/billing</span>}
+              status={<ResultBadge tone="success">Delivered</ResultBadge>}
+              actions={<Switch size="touch" defaultChecked aria-label="Send events" className="md:m-0 md:h-4 md:w-[26px]" />}
+              menu={
+                <RowActionsMenu
+                  actions={[
+                    { label: "Test", onSelect: () => undefined },
+                    { label: "Replace token", onSelect: () => undefined },
+                    { label: "Copy address", onSelect: () => undefined },
+                  ]}
+                  destructiveAction={{
+                    label: "Delete",
+                    onSelect: () => undefined,
+                    confirm: { title: "Delete this webhook?", confirmLabel: "Delete", cancelLabel: "Keep" },
+                  }}
+                />
+              }
+            />
+          </ListItem>
+        </List>
       </div>
     ),
   },

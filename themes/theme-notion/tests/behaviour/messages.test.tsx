@@ -37,6 +37,7 @@ import {
   UploadItem,
   type UploadFileItem,
   type UploadState,
+  RowActionsMenu,
 } from "../../src/index.js";
 import { installDomShims } from "../gallery/dom.js";
 
@@ -105,6 +106,10 @@ const CASES: Readonly<Record<string, MessageCase>> = {
   "copy.copy": {
     render: (text) => <CopyButton value="x" {...(text === undefined ? {} : { label: text })} />,
     read: textOf('[data-slot="copy-button"] span'),
+  },
+  "rowActions.more": {
+    render: (text) => <RowActionsMenu actions={[]} {...(text === undefined ? {} : { label: text })} />,
+    read: attributeOf('[data-slot="row-actions-menu-trigger"]', "aria-label"),
   },
   "dialog.close": {
     render: (text) => (

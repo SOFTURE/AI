@@ -32,7 +32,7 @@ end of the actions line; the line keeps the inline control and the menu together
   it the item runs at once. The copy is the app's; only the trigger's name has an English default.
 - `ListEntry` `menu` is a slot (any node), so an app may pass its own menu; `RowActionsMenu` is the recommended one.
 - The rules are documentation, not runtime checks: a row may legitimately show two inline controls in a wide layout.
-- Released as a minor together with #1481's unreleased `ListEntry` (new exports, no dependent range broken).
+- Released as a minor (new exports, no dependent range broken).
 
 ## Progress
 - [ ] Phase 1: RowActionsMenu and the ListEntry menu slot

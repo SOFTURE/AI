@@ -16,7 +16,7 @@ confirmed. Each fact is said once. An adopting app drops its local row overflow 
 `pkg: theme-notion`).
 
 ## Context
-`ListEntry` (#1481, unreleased in 0.34.0's successor) has one `actions` slot under the status. With four loose
+`ListEntry` (0.34.0, #1481) has one `actions` slot under the status. With four loose
 controls the slot wraps to a second line and the row scatters. Follows #1481 and #1349 (DocumentRow actions crowding
 out facts).
 
