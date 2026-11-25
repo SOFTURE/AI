@@ -85,21 +85,24 @@ describe("FoldRow", () => {
     expect(html).toMatch(/<div data-slot="fold-row-content"[^>]*><\/div>/);
   });
 
-  it("pads the opened content equally on all four sides by default", () => {
+  it("pads the opened content with the summary's 8 px inset, so the table starts under the chevron", () => {
     const html = renderToStaticMarkup(
       <FoldRow title="Dentist" badges={[]} detailsLabel="Visit details" details={[]} />,
     );
+    const summaryClasses = (/<summary data-slot="fold-row-summary" class="([^"]+)"/.exec(html)?.[1] ?? "").split(" ");
 
-    expect(readContentClass(html)).toBe("flex flex-col gap-2 p-3 empty:hidden");
+    expect(summaryClasses).toContain("px-2");
+    expect(summaryClasses).not.toContain("px-1");
+    expect(readContentClass(html)).toBe("flex flex-col gap-2 px-2 py-3 empty:hidden");
     expect(html).toContain('<div data-slot="fold-row-content" data-inset="false"');
   });
 
-  it("indents the opened content under the title with isInset", () => {
+  it("indents the opened content under the title with isInset (8 px inset, 16 px chevron, 8 px gap)", () => {
     const html = renderToStaticMarkup(
       <FoldRow title="Dentist" badges={[]} detailsLabel="Visit details" details={[]} isInset />,
     );
 
-    expect(readContentClass(html)).toBe("flex flex-col gap-2 py-2 pr-1 pl-6 empty:hidden");
+    expect(readContentClass(html)).toBe("flex flex-col gap-2 py-2 pr-2 pl-8 empty:hidden");
     expect(html).toContain('<div data-slot="fold-row-content" data-inset="true"');
   });
 
@@ -181,7 +184,7 @@ describe("FoldRow actions", () => {
       "items-center",
       "gap-1",
       "rounded-r-md",
-      "pr-1",
+      "pr-2",
       "transition-colors",
       "duration-120",
       "group-hover/fold-row-with-actions:bg-accent",

@@ -935,7 +935,7 @@
   ],
   "FoldRow": [
     ["fold-row","group/fold-row border-b border-border"],
-    ["fold-row-summary","flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-1 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden min-h-row-height"],
+    ["fold-row-summary","flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-2 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden min-h-row-height"],
     ["fold-row-heading","flex min-w-0 items-center gap-2"],
     ["fold-row-fact","text-ui text-muted-foreground"],
     ["fold-row-fact","text-ui text-muted-foreground"],
@@ -943,35 +943,35 @@
     ["badge","inline-flex w-fit max-w-full shrink-0 items-center justify-center-safe gap-1 overflow-hidden border border-transparent whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 h-5 rounded-xs px-1.5 py-0 text-sm font-normal bg-red-tag text-red-tag-foreground"],
     ["badge","inline-flex w-fit max-w-full shrink-0 items-center justify-center-safe gap-1 overflow-hidden border border-transparent whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 h-5 rounded-xs px-1.5 py-0 text-sm font-normal bg-green-tag text-green-tag-foreground"],
     ["badge","inline-flex w-fit max-w-full shrink-0 items-center justify-center-safe gap-1 overflow-hidden border border-transparent whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 h-5 rounded-xs px-1.5 py-0 text-sm font-normal bg-default-tag text-default-tag-foreground"],
-    ["fold-row-content","flex flex-col gap-2 p-3 empty:hidden"],
+    ["fold-row-content","flex flex-col gap-2 px-2 py-3 empty:hidden"],
     ["detail-table-frame","@container/detail-table w-full min-w-0"],
     ["detail-table","w-full table-fixed border-collapse text-ui [&_tr]:border-b [&_tr]:border-border [&_th]:w-48 [&_th]:py-1.5 [&_th]:pr-3 [&_th]:text-left [&_th]:align-top [&_th]:font-normal [&_th]:text-muted-foreground [&_td]:py-1.5 [&_td]:align-top [&_td]:wrap-anywhere @max-md/detail-table:[&_tr]:block @max-md/detail-table:[&_tr]:py-1.5 @max-md/detail-table:[&_th]:block @max-md/detail-table:[&_th]:w-auto @max-md/detail-table:[&_th]:py-0 @max-md/detail-table:[&_td]:block @max-md/detail-table:[&_td]:py-0"]
   ],
   "FoldRow[inset]": [
     ["fold-row","group/fold-row border-b border-border"],
-    ["fold-row-summary","flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-1 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden min-h-row-height"],
+    ["fold-row-summary","flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-2 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden min-h-row-height"],
     ["fold-row-heading","flex min-w-0 items-center gap-2"],
     ["fold-row-fact","text-ui text-muted-foreground"],
     ["fold-row-badges","ml-auto inline-flex flex-wrap gap-1"],
     ["badge","inline-flex w-fit max-w-full shrink-0 items-center justify-center-safe gap-1 overflow-hidden border border-transparent whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 h-5 rounded-xs px-1.5 py-0 text-sm font-normal bg-green-tag text-green-tag-foreground"],
-    ["fold-row-content","flex flex-col gap-2 py-2 pr-1 pl-6 empty:hidden"],
+    ["fold-row-content","flex flex-col gap-2 py-2 pr-2 pl-8 empty:hidden"],
     ["detail-table-frame","@container/detail-table w-full min-w-0"],
     ["detail-table","w-full table-fixed border-collapse text-ui [&_tr]:border-b [&_tr]:border-border [&_th]:w-48 [&_th]:py-1.5 [&_th]:pr-3 [&_th]:text-left [&_th]:align-top [&_th]:font-normal [&_th]:text-muted-foreground [&_td]:py-1.5 [&_td]:align-top [&_td]:wrap-anywhere @max-md/detail-table:[&_tr]:block @max-md/detail-table:[&_tr]:py-1.5 @max-md/detail-table:[&_th]:block @max-md/detail-table:[&_th]:w-auto @max-md/detail-table:[&_th]:py-0 @max-md/detail-table:[&_td]:block @max-md/detail-table:[&_td]:py-0"]
   ],
   "FoldRow[size=touch]": [
     ["fold-row","group/fold-row border-b border-border"],
-    ["fold-row-summary","flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-1 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden min-h-touch-target"],
+    ["fold-row-summary","flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-2 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden min-h-touch-target"],
     ["fold-row-heading","flex min-w-0 items-center gap-2"],
     ["fold-row-fact","text-ui text-muted-foreground"],
     ["fold-row-badges","ml-auto inline-flex flex-wrap gap-1"],
     ["badge","inline-flex w-fit max-w-full shrink-0 items-center justify-center-safe gap-1 overflow-hidden border border-transparent whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 h-5 rounded-xs px-1.5 py-0 text-sm font-normal bg-green-tag text-green-tag-foreground"],
-    ["fold-row-content","flex flex-col gap-2 p-3 empty:hidden"]
+    ["fold-row-content","flex flex-col gap-2 px-2 py-3 empty:hidden"]
   ],
   "FoldRow[summary]": [
     ["fold-row","group/fold-row border-b border-border"],
-    ["fold-row-summary","flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-1 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden min-h-row-height"],
+    ["fold-row-summary","flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-2 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden min-h-row-height"],
     ["fold-row-summary-slot","flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1"],
-    ["fold-row-content","flex flex-col gap-2 p-3 empty:hidden"]
+    ["fold-row-content","flex flex-col gap-2 px-2 py-3 empty:hidden"]
   ],
   "FormGrid": [
     ["form-grid","grid gap-x-6 gap-y-6 grid-cols-1 md:grid-cols-2 *:data-[slot=field]:row-span-(--form-grid-rows) *:data-[slot=field]:data-[orientation=vertical]:grid *:data-[slot=field]:data-[orientation=vertical]:grid-rows-subgrid *:data-[slot=field]:data-[orientation=vertical]:*:m-0 *:data-[slot=field]:data-[orientation=vertical]:*:first:self-end w-[40rem] max-w-full"],

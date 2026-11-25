@@ -213,9 +213,10 @@ is `min-w-0`, so a wide table scrolls inside its card instead of widening the pa
 ```
 
 **`FoldRow`.** An item as one list row in a native `<details>`: a chevron, the title, short facts and badges on the
-right; opened, it shows a `DetailTable` and its `children`. The opened content is padded 12 px on all four sides
-(`p-3`), so a table sits centred under the row; `isInset` indents it under the title instead (24 px on the left) and
-sets `data-inset` on the content, like `StatsFold`. A row with a summary of its own (icons, a status) passes `summary`,
+right; opened, it shows a `DetailTable` and its `children`. The bar and the opened content share one 8 px
+horizontal inset (`px-2`; the content is padded 12 px top and bottom, `py-3`), so the table starts under the chevron;
+`isInset` indents it under the title instead (32 px on the left) and sets `data-inset` on the content, like
+`StatsFold`. A row with a summary of its own (icons, a status) passes `summary`,
 drawn after the chevron in place of `title`, `facts` and `badges`; `details` and `detailsLabel` are optional together,
 so the content can be several tables or a list. `size="touch"` makes the summary at least the `touch-target` height
 (44 px) instead of the row height, for a phone list. `actions` puts controls on the row's right (a delete button,

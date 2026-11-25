@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `FoldRow` (#1463): the bar and its opened content share one 8 px horizontal inset. The summary is padded `px-2`
+  (was `px-1`), the opened content `px-2 py-3` (was `p-3`), so the chevron and the details table start at the same x;
+  the actions keep the same inset on the bar's right (`pr-2`, was `pr-1`). `isInset` content starts under the title
+  at the new inset (`py-2 pr-2 pl-8`, was `py-2 pr-1 pl-6`).
+- Migration: an app that aligned the row itself
+  (`[&_[data-slot=fold-row-summary]]:px-2 [&_[data-slot=fold-row-content]]:px-2` on the row) drops the override.
+
 ## 0.31.0
 
 - `PageLayout`: a screen inside the app shell, its `PageHeader` (the `header` prop takes the same props) and then its
