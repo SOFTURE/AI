@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.35.0
 
 - `RowActionsMenu` (#1486): a row's overflow menu. An icon-only "More actions" button (`label` for the app's words)
   opens a `DropdownMenu` of `actions`; `destructiveAction` is last, after a separator, in the danger tone, and with
