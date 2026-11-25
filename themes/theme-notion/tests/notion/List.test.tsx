@@ -1,7 +1,17 @@
+import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { LIST_CLASSES, List, ListGroup, ListGroupHeading, ListItem, ListRow } from "../../src/notion/List.js";
+import {
+  LIST_CLASSES,
+  List,
+  ListEntry,
+  ListGroup,
+  ListGroupHeading,
+  ListItem,
+  ListRow,
+  type ListEntryProps,
+} from "../../src/notion/List.js";
 
 function readOpening(html: string, slot: string): string {
   const match = new RegExp(`<\\w+ [^>]*data-slot="${slot}"[^>]*>`).exec(html);
@@ -182,5 +192,105 @@ describe("ListGroupHeading (#1350)", () => {
     expect(LIST_CLASSES.tintedGroupHeading).toContain("min-h-10");
     expect(LIST_CLASSES.group).toContain("scroll-mt-10");
     expect(`${LIST_CLASSES.group} ${LIST_CLASSES.groupHeading} ${LIST_CLASSES.tintedGroupHeading}`).not.toMatch(/#|\[\d/);
+  });
+});
+
+describe("ListEntry (#1481)", () => {
+  const renderEntry = (props: Partial<ListEntryProps> = {}) =>
+    renderToStaticMarkup(
+      <ListEntry
+        title="Nightly deploy"
+        details={<span>main · 4 min ago</span>}
+        status={<span data-testid="state">Passed</span>}
+        actions={<button type="button">Retry</button>}
+        {...props}
+      />,
+    );
+
+  it("lays the identity on the left and the right column (status over actions) on the right", () => {
+    const html = renderEntry();
+    const entry = readOpening(html, "list-entry");
+
+    expect(entry.startsWith("<div ")).toBe(true);
+    expect(readClasses(entry)).toEqual(expect.arrayContaining(["relative", "flex", "flex-wrap", "items-center", "hover:bg-accent", "py-(--list-row-y)"]));
+    expect(readClasses(readOpening(html, "list-entry-identity"))).toEqual(expect.arrayContaining(["min-w-0", "flex-1", "max-md:basis-full"]));
+    expect(html.indexOf('data-slot="list-entry-title"')).toBeLessThan(html.indexOf('data-slot="list-entry-details"'));
+    expect(html.indexOf('data-slot="list-entry-status"')).toBeLessThan(html.indexOf('data-slot="list-entry-actions"'));
+    expect(readClasses(readOpening(html, "list-entry-column"))).toEqual(expect.arrayContaining(["flex-col", "items-end"]));
+    expect(readClasses(readOpening(html, "list-entry-side"))).toEqual(expect.arrayContaining(["ml-auto", "relative", "z-10"]));
+  });
+
+  it("draws only the slots it is given", () => {
+    const html = renderToStaticMarkup(<ListEntry title="Plain" />);
+
+    expect(html).toContain('data-slot="list-entry-title"');
+    for (const slot of ["list-entry-details", "list-entry-side", "list-entry-status", "list-entry-actions", "list-entry-arrow"]) {
+      expect(html).not.toContain(`data-slot="${slot}"`);
+    }
+    const statusOnly = renderToStaticMarkup(<ListEntry title="Plain" status="Passed" />);
+    expect(statusOnly).toContain('data-slot="list-entry-status"');
+    expect(statusOnly).not.toContain('data-slot="list-entry-actions"');
+  });
+
+  it("makes the controls at least the touch target on a phone", () => {
+    const actions = readClasses(readOpening(renderEntry(), "list-entry-actions"));
+
+    expect(actions).toEqual(expect.arrayContaining(["max-md:*:min-h-touch-target", "max-md:*:min-w-touch-target", "justify-end"]));
+  });
+
+  it("with href, stretches the title's link over the row and keeps the arrow beside the column", () => {
+    const html = renderEntry({ href: "/deploys/42" });
+    const link = readOpening(html, "list-entry-title");
+    const side = html.slice(html.indexOf('data-slot="list-entry-side"'));
+
+    expect(link.startsWith("<a ")).toBe(true);
+    expect(link).toContain('href="/deploys/42"');
+    expect(readClasses(link)).toEqual(expect.arrayContaining(["after:absolute", "after:inset-0"]));
+    expect(side).toContain('data-slot="list-entry-arrow"');
+    expect(readClasses(readOpening(html, "list-entry-side"))).toContain("flex-nowrap");
+    expect(readOpening(html, "list-entry-arrow")).toContain('aria-hidden="true"');
+    expect(readClasses(readOpening(html, "list-entry"))).toContain("has-[[data-slot=list-entry-title]:focus-visible]:ring-2");
+  });
+
+  it("with href and no column, still draws the arrow at the row's right edge", () => {
+    const html = renderToStaticMarkup(<ListEntry title="Open" href="/x" />);
+
+    expect(html).toContain('data-slot="list-entry-side"');
+    expect(html).toContain('data-slot="list-entry-arrow"');
+    expect(html).not.toContain('data-slot="list-entry-column"');
+  });
+
+  it("renders the app's own link component for the title", () => {
+    function AppLink(props: { readonly href: string; readonly className?: string; readonly children?: ReactNode }) {
+      return <a data-app-link="" {...props} />;
+    }
+    const link = readOpening(renderEntry({ href: "/inbox", linkComponent: AppLink }), "list-entry-title");
+
+    expect(link).toContain("data-app-link");
+    expect(link).toContain('href="/inbox"');
+  });
+
+  it("gives a data-row-wide control the full row width, its lines starting on the left", () => {
+    const html = renderEntry();
+
+    expect(readClasses(readOpening(html, "list-entry-side"))).toEqual(
+      expect.arrayContaining(["has-[[data-row-wide]]:basis-full", "has-[[data-row-wide]]:ml-0"]),
+    );
+    expect(readClasses(readOpening(html, "list-entry-column"))).toEqual(
+      expect.arrayContaining(["has-[[data-row-wide]]:flex-1", "has-[[data-row-wide]]:items-stretch"]),
+    );
+    expect(readClasses(readOpening(html, "list-entry-actions"))).toEqual(
+      expect.arrayContaining(["has-[[data-row-wide]]:flex-col", "has-[[data-row-wide]]:items-stretch", "has-[[data-row-wide]]:justify-start"]),
+    );
+    expect(readClasses(readOpening(html, "list-entry-status"))).toContain(
+      "group-has-[[data-row-wide]]/list-entry-side:justify-start",
+    );
+  });
+
+  it("passes the app's attributes and classes to the row", () => {
+    const entry = readOpening(renderEntry({ className: "my-row", "data-run": "42" } as Partial<ListEntryProps>), "list-entry");
+
+    expect(entry).toContain('data-run="42"');
+    expect(readClasses(entry)).toContain("my-row");
   });
 });

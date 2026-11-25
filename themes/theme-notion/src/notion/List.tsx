@@ -1,8 +1,11 @@
 import type { Density } from "@softure-ai/theme-kit";
+import { ChevronRight } from "lucide-react";
 import { Slot } from "radix-ui";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ElementType, ReactNode } from "react";
 
 import { cn } from "../lib/utils.js";
+
+import { ICON_STROKE_WIDTH } from "./icon-stroke.js";
 
 /**
  * The classes of a list that follows the density (`data-density` on the list or an ancestor; theme-kit's
@@ -76,6 +79,122 @@ export type ListRowProps = ComponentProps<"div"> & {
 export function ListRow({ asChild = false, className, ...props }: ListRowProps) {
   const Comp = asChild ? Slot.Root : "div";
   return <Comp data-slot="list-row" className={cn(LIST_CLASSES.row, className)} {...props} />;
+}
+
+/** The link a `ListEntry` title renders: a plain `a`, or the app's router link taking the same props. */
+export type ListEntryLinkComponent = ElementType<{ href: string; className?: string; children?: ReactNode }>;
+
+export type ListEntryProps = Omit<ComponentProps<"div">, "title" | "children"> & {
+  /** What the row is: its name, in the medium weight. With `href` it is the link that opens the row. */
+  readonly title: ReactNode;
+  /** Lines under the title (facts, a path, a time), in the muted colour; the app lays out its own lines. */
+  readonly details?: ReactNode;
+  /** The row's state, at the top of the right column (one or more badges, which wrap right-aligned). */
+  readonly status?: ReactNode;
+  /**
+   * The row's controls, under the status. They stay their own targets above the row's link, and are at least the
+   * touch target (44 px) on a phone. A control marked `data-row-wide` (an inline form that needs room) makes the right
+   * column take the full row width under the identity, its lines starting on the left.
+   */
+  readonly actions?: ReactNode;
+  /** The row opens this address: the title's link is stretched over the whole row, with an arrow at its right. */
+  readonly href?: string;
+  /** The element for the link (a router's link component); a plain `a` by default. */
+  readonly linkComponent?: ListEntryLinkComponent;
+};
+
+function isDrawn(node: ReactNode): boolean {
+  return node !== undefined && node !== null && node !== false;
+}
+
+/**
+ * A list row with an identity and a right column: the title and its detail lines on the left, the row's state at the
+ * top of the right column and its controls under it. With `href` the title is a link stretched over the whole row, so
+ * the row is one box lit on hover, and an arrow sits beside the column (never on a line of its own); the column stays
+ * above the link. On a phone (below `md`) the column wraps under the identity, right-aligned. Place it in a `ListItem`.
+ */
+export function ListEntry({
+  title,
+  details,
+  status,
+  actions,
+  href,
+  linkComponent: Link = "a",
+  className,
+  ...props
+}: ListEntryProps) {
+  const hasStatus = isDrawn(status);
+  const hasActions = isDrawn(actions);
+  const hasColumn = hasStatus || hasActions;
+  const hasLink = href !== undefined;
+  const titleClasses = "min-w-0 text-ui-medium text-foreground";
+  return (
+    <div
+      data-slot="list-entry"
+      className={cn(
+        "relative flex w-full min-w-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-md px-2 py-(--list-row-y) text-ui transition-colors duration-100 hover:bg-accent",
+        "has-[[data-slot=list-entry-title]:focus-visible]:ring-2 has-[[data-slot=list-entry-title]:focus-visible]:ring-ring",
+        className,
+      )}
+      {...props}
+    >
+      <div data-slot="list-entry-identity" className="flex min-w-0 flex-1 basis-48 flex-col gap-0.5 max-md:basis-full">
+        {hasLink ? (
+          <Link
+            data-slot="list-entry-title"
+            href={href}
+            className={cn(titleClasses, "outline-none after:absolute after:inset-0 after:rounded-md after:content-['']")}
+          >
+            {title}
+          </Link>
+        ) : (
+          <span data-slot="list-entry-title" className={titleClasses}>
+            {title}
+          </span>
+        )}
+        {isDrawn(details) ? (
+          <div data-slot="list-entry-details" className="flex min-w-0 flex-col text-ui text-muted-foreground">
+            {details}
+          </div>
+        ) : null}
+      </div>
+      {hasColumn || hasLink ? (
+        <div
+          data-slot="list-entry-side"
+          className="group/list-entry-side pointer-events-none relative z-10 ml-auto flex max-w-full min-w-0 flex-nowrap items-center gap-2 has-[[data-row-wide]]:ml-0 has-[[data-row-wide]]:basis-full"
+        >
+          {hasColumn ? (
+            <div
+              data-slot="list-entry-column"
+              className="flex min-w-0 flex-col items-end gap-1 has-[[data-row-wide]]:flex-1 has-[[data-row-wide]]:items-stretch"
+            >
+              {hasStatus ? (
+                <div
+                  data-slot="list-entry-status"
+                  className="pointer-events-auto flex min-w-0 flex-wrap items-center justify-end gap-1 group-has-[[data-row-wide]]/list-entry-side:justify-start"
+                >
+                  {status}
+                </div>
+              ) : null}
+              {hasActions ? (
+                <div
+                  data-slot="list-entry-actions"
+                  className="pointer-events-auto flex min-w-0 flex-wrap items-center justify-end gap-1 has-[[data-row-wide]]:flex-col has-[[data-row-wide]]:items-stretch has-[[data-row-wide]]:justify-start max-md:*:min-h-touch-target max-md:*:min-w-touch-target"
+                >
+                  {actions}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {hasLink ? (
+            <span data-slot="list-entry-arrow" aria-hidden="true" className="flex shrink-0 text-muted-foreground">
+              <ChevronRight strokeWidth={ICON_STROKE_WIDTH} className="size-4" />
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export type ListGroupProps = ComponentProps<"div"> & {

@@ -142,7 +142,7 @@ All 37 shadcn/ui components of the design system, exported from the package root
 avatar, badge, breadcrumb, button, button-group, card, checkbox, collapsible, command, dialog, dropdown-menu, empty,
 field, input, input-group, item, kbd, label, popover, progress, radio-group, scroll-area, select, separator, sheet,
 sidebar, skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, tooltip. Compositions: `Status` (badge, icon,
-word), `PageHeader` (breadcrumb, icon box, title, description, actions), `PageLayout` (a screen in the app shell: its
+word), `ResultBadge` (a result as a filled tag in its tone's colour, with an icon and a word, below), `PageHeader` (breadcrumb, icon box, title, description, actions), `PageLayout` (a screen in the app shell: its
 `PageHeader`, then its sections, at one width and spacing, below), `PropertyList` (fields of one record),
 `DetailTable` (an item's details as a label and value table, laid out fixed at its container's width, each label
 above its value where the table is narrower than 28rem), `FoldRow` (a list row folding open to a `DetailTable`
@@ -157,6 +157,7 @@ stages with a state, below), `Timeline` (dated entries on a vertical rail, below
 `Prose` (the text styles of a long read the app does not draw itself, such as Markdown rendered to HTML, below),
 `SortableList`, `SortableItem`, `SortableHandle` and `SortableActivator` (rows reordered by dragging, below),
 `List`, `ListItem` and `ListRow` (a list of rows, compact or roomy by the page's density, below),
+`ListEntry` (a list row with an identity and a right column, its state over its controls, below),
 `ListGroup` and `ListGroupHeading` (a run of rows under a heading that sticks at the top of its scroll, below),
 `MiniProgress` (a compact bar with its figure inside, for a table cell or a tile, below),
 `UpdatePrompt` (the offer to reload into a new build, for an installed app, below),
@@ -523,6 +524,48 @@ scheme the theme's `border` is that card's own grey.
 `ListItem asChild` and `ListRow asChild` keep the app's own element (a sortable item, a link). For a list the app
 renders with other components, `LIST_CLASSES` holds the same classes (`list`, `tintedList`, `item`, `row`), e.g.
 `<SortableList className={LIST_CLASSES.list}>` with `<SortableItem className={LIST_CLASSES.item}>`.
+
+**`ListEntry`: a row with a right column.** The most common row of an admin list: what the row is on the left
+(`title`, in the medium weight, and `details`, the lines under it in the muted colour) and a right column with the
+row's state on top (`status`, badges that wrap right-aligned) and its controls under it (`actions`). With `href` the
+title is a link stretched over the whole row, so the row is one box lit on hover with one focus ring, and a muted arrow
+sits beside the column; the arrow and the column are one group, so the arrow never wraps onto a line of its own. The
+column stays above the link: its controls are their own targets, and a click on the gap between them or on the arrow
+still opens the row. Pass `linkComponent` for a router's link (it takes `href`, `className` and `children`). On a
+phone (below `md`) the column wraps under the identity, right-aligned, and every control is at least the touch target
+(44 px). A control that needs room while it is open (an inline answer form) carries `data-row-wide`: the column then
+takes the full row width under the identity, its lines starting on the left. Place the row in a `ListItem`, so it
+follows the list's density.
+
+```tsx
+<List aria-label="Deploys">
+  {deploys.map((deploy) => (
+    <ListItem key={deploy.id}>
+      <ListEntry
+        href={`/deploys/${deploy.id}`}
+        linkComponent={Link}
+        title={deploy.name}
+        details={<><span>{deploy.branch}</span><span>{deploy.startedAt}</span></>}
+        status={<ResultBadge tone={TONE_BY_RESULT[deploy.result]}>{deploy.resultLabel}</ResultBadge>}
+        actions={<Button variant="ghost" size="icon-sm" aria-label="Retry"><RotateCw /></Button>}
+      />
+    </ListItem>
+  ))}
+</List>
+```
+
+**`ResultBadge`: a result in its tone.** A result (passed, failed, skipped, running) as a filled tag in its tone's
+colour (`TONE_COLORS`: `success` green, `warning` orange, `danger` red, `muted` gray, `default` the default tag), with
+the tone's icon (`RESULT_BADGE_ICONS`: `CircleCheck`, `TriangleAlert`, `CircleX`, `CircleMinus`, `Circle`; pass
+`icon` for another) and always a word. The app keeps its own table of which result takes which tone; the theme owns
+the colours, so "failed" is red in every list. `isSpinning` marks a run still in progress: the icon (a
+`LoaderCircle` unless `icon` is given) spins with `motion-safe:animate-spin`, still for a reader who asked for reduced
+motion. `Status` is the ghost counterpart, for a state written in text colour.
+
+```tsx
+<ResultBadge tone="danger">Failed</ResultBadge>
+<ResultBadge tone="muted" isSpinning>Running</ResultBadge>
+```
 
 **`ListGroup`, `ListGroupHeading`: a sticky group heading.** A heading over a run of rows (a country's days, a month's
 entries) that sticks at the top of the scroll container while its rows pass under it, and is pushed away by the next

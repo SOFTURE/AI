@@ -6,6 +6,17 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `ListEntry` (#1481): a list row with an identity and a right column. `title` and `details` (the lines under it) on
+  the left; `status` at the top of the right column and `actions` under it. With `href` (and `linkComponent` for a
+  router's link) the title's link is stretched over the whole row with an arrow beside the column, which never wraps
+  alone; the column stays above the link. Below `md` the column wraps under the identity, right-aligned, with 44 px
+  controls. A control marked `data-row-wide` makes the column take the full row width, its lines starting on the left.
+  `ListRow` is unchanged.
+- `ResultBadge` (#1481): a result as a filled tag in its tone's colour (`TONE_COLORS`), the tone's icon
+  (`RESULT_BADGE_ICONS`, overridable with `icon`) and always a word; `isSpinning` spins the icon
+  (`motion-safe:animate-spin`) for a run in progress.
+- Migration: an app that built its own list row with a state/actions column and a stretched title link, or its own
+  result badge on the tones, replaces them with `ListEntry` and `ResultBadge`.
 - `Badge` (#1482): a badge given a palette `color` renders `data-color="<color>"` next to its `data-variant`, the way
   `Status` names its colour, so a browser test checks a filled tag with `[data-color=red]` as it checks a status.
   `color="none"` or no colour sets nothing; an app's own `data-color` still wins.
