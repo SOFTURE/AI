@@ -3,7 +3,8 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { readGoogleFontNames, softureStubsPlugin, softureVitestConfig } from "@softure-ai/testing";
+import { configDefaults } from "vitest/config";
+import { readGoogleFontNames, softureStubsPlugin, softureVitestConfig, VITEST_DOM_SETUP_FILE } from "@softure-ai/testing";
 
 const PACKAGE_DIR = join(import.meta.dirname, "..");
 const REPO_ROOT = join(PACKAGE_DIR, "../..");
@@ -34,6 +35,29 @@ describe("softureVitestConfig", () => {
     const config = softureVitestConfig({ inline: ["esm-only", /^@scope\//], setupFile: false });
     expect(config.test?.server?.deps?.inline).toEqual([/@softure-ai\//, "esm-only", /^@scope\//]);
     expect(config.test).not.toHaveProperty("setupFiles");
+  });
+
+  it("adds no projects unless dom is set", () => {
+    expect(softureVitestConfig().test).not.toHaveProperty("projects");
+    expect(softureVitestConfig({ dom: false }).test).not.toHaveProperty("projects");
+  });
+
+  it("with dom, splits the tests into a node project and a happy-dom project for *.dom.test files", () => {
+    const projects = softureVitestConfig({ dom: true }).test?.projects;
+    expect(projects).toEqual([
+      { extends: true, test: { name: "node", exclude: [...configDefaults.exclude, "**/*.dom.test.*"] } },
+      {
+        extends: true,
+        test: {
+          name: "dom",
+          environment: "happy-dom",
+          include: ["**/*.dom.test.?(c|m)[jt]s?(x)"],
+          exclude: [...configDefaults.exclude, "**/!(*.dom.test).?(c|m)[jt]s?(x)"],
+          setupFiles: ["@softure-ai/testing/vitest-dom-setup"],
+        },
+      },
+    ]);
+    expect(VITEST_DOM_SETUP_FILE).toBe("@softure-ai/testing/vitest-dom-setup");
   });
 
   it("pins the test time zone, and TEST_TZ from the shell still wins", () => {

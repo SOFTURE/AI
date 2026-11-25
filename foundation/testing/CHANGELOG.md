@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`testing@x.y.z`).
 
+## Unreleased
+
+- `softureVitestConfig({ dom: true })` runs `*.dom.test.*` files in happy-dom (project `dom`) and every other test in
+  node (project `node`), so an app unit tests a component's keyboard and focus behaviour instead of moving it to the
+  e2e. New entries `@softure-ai/testing/vitest-dom-setup` (unmounts after each test) and `@softure-ai/testing/dom`
+  (`renderWithUser`: `render` plus a `user-event` instance); new optional peers `happy-dom`,
+  `@testing-library/react`, `@testing-library/dom`, `@testing-library/user-event`.
+  - Migrate: nothing; an app that wants DOM tests installs the four packages and sets `dom: true`.
+
 ## 0.5.2
 
 - `submitLogin` waits for the form to settle (no busy submit button) after the action's answer, not only for the

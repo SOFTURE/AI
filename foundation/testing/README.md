@@ -7,7 +7,8 @@ Test tools shared by SOFTURE apps and modules:
   while time keeps running, so date logic can be tested for a day that has not come yet
   ([Clock shift](#clock-shift));
 - a Vitest preset with the settings every Next.js app on SOFTURE packages needs
-  ([Vitest preset](#vitest-preset));
+  ([Vitest preset](#vitest-preset)), with an opt-in happy-dom project for component interaction tests
+  ([DOM tests](#dom-tests));
 - Playwright helpers for black-box tests of an app: a `test` with its own client address per test, a
   config preset, client addresses, the auth forms, unique test data, the product select, polling, links
   and assertions ([Playwright helpers](#playwright-helpers));
@@ -142,6 +143,50 @@ export default mergeConfig(
 
 `vitest` is an optional peer dependency.
 
+### DOM tests
+
+A component that only works in a browser (a menu opened with Enter and moved with the arrow keys, a dialog that
+gives focus back when it closes, anything rendered in a portal) is tested in a DOM, next to the app's other Vitest
+tests. `dom: true` splits the run into two projects:
+
+- `dom`: files named `*.dom.test.{ts,tsx}` (any `.js`/`.mjs`/`.cjs` variant too), in happy-dom, with
+  `@softure-ai/testing/vitest-dom-setup`, which unmounts what a test rendered after each test;
+- `node`: every other test, as before.
+
+```bash
+npm install -D happy-dom @testing-library/react @testing-library/dom @testing-library/user-event
+```
+
+```ts
+// vitest.config.mts
+export default mergeConfig(
+  softureVitestConfig({ dom: true }),
+  defineConfig({ test: { include: ["tests/**/*.test.{ts,tsx}"] } }),
+);
+```
+
+```tsx
+// tests/row-actions.dom.test.tsx
+import { screen } from "@testing-library/react";
+import { renderWithUser } from "@softure-ai/testing/dom";
+import { expect, it } from "vitest";
+import { RowActions } from "../src/row-actions";
+
+it("opens with Enter and gives focus back on Escape", async () => {
+  const { user } = renderWithUser(<RowActions />);
+  await user.tab();
+  await user.keyboard("{Enter}");
+  expect(screen.getByRole("menu")).toBeTruthy();
+  await user.keyboard("{Escape}");
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Actions" }));
+});
+```
+
+`renderWithUser(ui, { render?, user? })` is Testing Library's `render` plus a `user` from `userEvent.setup()`; with
+fake timers pass `{ user: { advanceTimers: vi.advanceTimersByTime } }`. Everything else (`screen`, `within`, `act`)
+comes from `@testing-library/react`. `npx vitest --project dom` runs only the DOM tests. The four packages are
+optional peers: an app without `dom` installs none of them.
+
 ## Fake fetch
 
 Code that calls another service takes an injected `fetch`. `fakeFetch(routes)` answers it from a script and
@@ -192,7 +237,10 @@ Vitest at run time.
 
 | Export | What it does |
 | --- | --- |
-| `softureVitestConfig({ timeZone?, inline?, setupFile? })` | Pins the zone and returns the [Vitest preset](#vitest-preset) config. |
+| `softureVitestConfig({ timeZone?, inline?, setupFile?, dom? })` | Pins the zone and returns the [Vitest preset](#vitest-preset) config; `dom: true` adds the `node` and `dom` projects ([DOM tests](#dom-tests)). |
+| `DOM_TEST_PATTERN` | `"**/*.dom.test.?(c\|m)[jt]s?(x)"`: the files the `dom` project runs. |
+| `@softure-ai/testing/vitest-dom-setup` | Setup entry of the `dom` project: unmounts what a test rendered after each test. |
+| `renderWithUser(ui, { render?, user? })` (`@softure-ai/testing/dom`) | Renders `ui` and returns Testing Library's result with a `user` from `userEvent.setup()`. |
 | `softureStubsPlugin()` | Just the Vite plugin with the `server-only` and `next/font` stubs. |
 | `@softure-ai/testing/vitest-setup` | Setup entry: pins the zone (`TEST_TZ`, default `America/New_York`), then shifts the clock when `TEST_TODAY` is set. |
 | `DEFAULT_TEST_TIME_ZONE` | `"America/New_York"`: the zone tests run in unless `TEST_TZ` names another. |
@@ -440,6 +488,9 @@ it("keeps the server-action rules", () => {
 without types: a call through a variable or a helper in another file is not followed.
 
 ## Limitations
+
+- `dom: true` defines `test.projects`; an app that defines projects of its own gets both lists, so it adds the
+  `dom` project to its own instead (`softureVitestConfig({ dom: true }).test.projects`).
 
 - Node only: the setup reads `process.env`.
 - The zone is pinned when the setup runs. A module loaded earlier that cached a formatter or a computed

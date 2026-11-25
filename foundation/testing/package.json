@@ -1,12 +1,14 @@
 {
   "name": "@softure-ai/testing",
   "version": "0.5.2",
-  "description": "SOFTURE AI test tools: a Vitest preset and setup file that pins the test time zone and shifts the test clock to TEST_TODAY, Playwright helpers, a per-test client address and installed-app and phone checks (standalone, safe-area insets, phone network, offline, touch targets, a share from the share sheet) for black-box tests of an app, a scripted fake fetch, and source guards for architecture tests.",
+  "description": "SOFTURE AI test tools: a Vitest preset and setup file that pins the test time zone and shifts the test clock to TEST_TODAY, an opt-in happy-dom project for component interaction tests, Playwright helpers, a per-test client address and installed-app and phone checks (standalone, safe-area insets, phone network, offline, touch targets, a share from the share sheet) for black-box tests of an app, a scripted fake fetch, and source guards for architecture tests.",
   "license": "MIT",
   "type": "module",
   "sideEffects": [
     "./src/vitest/setup.ts",
-    "./dist/vitest/setup.js"
+    "./src/vitest/dom-setup.ts",
+    "./dist/vitest/setup.js",
+    "./dist/vitest/dom-setup.js"
   ],
   "engines": {
     "node": ">=22"
@@ -38,6 +40,16 @@
       "types": "./dist/vitest/setup.d.ts",
       "default": "./dist/vitest/setup.js"
     },
+    "./vitest-dom-setup": {
+      "@softure-ai/source": "./src/vitest/dom-setup.ts",
+      "types": "./dist/vitest/dom-setup.d.ts",
+      "default": "./dist/vitest/dom-setup.js"
+    },
+    "./dom": {
+      "@softure-ai/source": "./src/dom/index.ts",
+      "types": "./dist/dom/index.d.ts",
+      "default": "./dist/dom/index.js"
+    },
     "./playwright": {
       "@softure-ai/source": "./src/playwright/index.ts",
       "types": "./dist/playwright/index.d.ts",
@@ -56,12 +68,28 @@
   },
   "peerDependencies": {
     "@playwright/test": "^1.65.1",
+    "@testing-library/dom": ">=10.0.0",
+    "@testing-library/react": ">=16.0.0",
+    "@testing-library/user-event": ">=14.0.0",
+    "happy-dom": ">=20.0.0",
     "pg": "^8.11.0",
     "typescript": ">=5.0.0 <7.0.0",
     "vitest": ">=4.0.0"
   },
   "peerDependenciesMeta": {
     "@playwright/test": {
+      "optional": true
+    },
+    "@testing-library/dom": {
+      "optional": true
+    },
+    "@testing-library/react": {
+      "optional": true
+    },
+    "@testing-library/user-event": {
+      "optional": true
+    },
+    "happy-dom": {
       "optional": true
     },
     "pg": {
@@ -76,8 +104,15 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.65.1",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.13",
     "@types/pg": "^8.23.1",
-    "pg": "^8.23.1"
+    "@types/react": "^19.3.0",
+    "happy-dom": "^21.0.4",
+    "pg": "^8.23.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json"
