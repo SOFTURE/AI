@@ -1,12 +1,13 @@
 ---
 change_id: testing-dom-project
 title: "testing: an opt-in DOM project in the Vitest preset for component interaction tests (issue #1487)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1487
 branch: claude/project-thread-5pmwpu
 created: 2026-11-25
 updated: 2026-11-25
+archived_at: 2026-11-25
 ---
 
 ## Intent
@@ -34,3 +35,11 @@ without moving the check into the Playwright e2e. Issue #1487 (`enhancement`, `t
 
 ## Notes
 - frame skipped: a reported gap with a proposed shape in the issue.
+
+## Done
+`softureVitestConfig({ dom: true })`: a `dom` project runs `*.dom.test.*` files in happy-dom with a setup file that
+unmounts after each test, a `node` project runs every other test. `@softure-ai/testing/dom` adds `renderWithUser`
+(`render` plus `userEvent.setup()`). Optional peers `happy-dom`, `@testing-library/react`, `@testing-library/dom`,
+`@testing-library/user-event`. Tests (project shape, a Vitest run of a keyboard-driven menu), README, CHANGELOG
+`Unreleased`; ships in the next testing release. An adopting app moves its menu keyboard checks from the e2e into
+`*.dom.test.tsx` files.
