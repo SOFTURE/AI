@@ -43,6 +43,9 @@ jobs:
   validate:
     name: validate and pack
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read # the master runs of ci.yml (step "Gates already passed on master")
     # The Gates step runs `npm test`, which needs the setup of ci.yml's test job: a Postgres server
     # (foundation/db/tests/postgres-env.test.ts fails without it in CI) and the runner's Chrome for
     # the marketing-kit screenshot tests. tests/repo/release-workflow.test.ts keeps the two in step.
@@ -84,10 +87,24 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # A tag can point at any commit, so a release repeats the gates `ci.yml` runs on branches.
+      # A tag can point at any commit of master. `ci.yml` runs typecheck, lint and the whole suite on every push to
+      # master, so a commit with a successful master run of it skips repeating them here (20 to 30 minutes on one
+      # runner); the script waits while that run is still going. No run, a red or cancelled run, a timeout or an API
+      # error answers `run`, and the release runs the gates itself (scripts/release/master-gates.mjs).
+      - name: Gates already passed on master
+        id: master-gates
+        if: github.ref_type == 'tag'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          decision="$(node scripts/release/master-gates.mjs "$(git rev-parse HEAD)")"
+          echo "decision=$decision" >> "$GITHUB_OUTPUT"
+          if [ "$decision" = passed ]; then
+            echo "::notice::This commit passed ci.yml on master: the gates are not repeated."
+          fi
       # Typed ESLint over the whole tree outgrew Node's default heap, as in ci.yml's static job.
       - name: Gates
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' && steps.master-gates.outputs.decision != 'passed'
         env:
           NODE_OPTIONS: --max-old-space-size=8192
         run: |
