@@ -158,6 +158,7 @@ describe("TokenManager", () => {
     expect(screen.getByText(`${en.list.active} · ${en.list.readOnly}`)).toBeDefined();
     expect(screen.getByText(LAPTOP.details.join(" · "))).toBeDefined();
     const trigger = screen.getByRole("button", { name: `${en.list.revoke}: Laptop` });
+    expect(trigger.className).toContain("sft:min-h-11 sft:md:min-h-0");
     trigger.focus();
     await submit(trigger);
     const dialog = screen.getByRole("dialog", { name: "Revoke Laptop?" });

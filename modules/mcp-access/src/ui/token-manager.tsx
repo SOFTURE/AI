@@ -398,7 +398,16 @@ function ConfirmDialogButton({ label, ariaLabel, title, description, confirmLabe
   }
   return (
     <>
-      <Button variant="danger" size="sm" aria-label={ariaLabel} aria-haspopup="dialog" onClick={() => setIsOpen(true)} unstyled={unstyled}>
+      <Button
+        variant="danger"
+        size="sm"
+        aria-label={ariaLabel}
+        aria-haspopup="dialog"
+        onClick={() => setIsOpen(true)}
+        // A 44 px target on a phone, the row's compact size from md up.
+        className={unstyled === true ? undefined : "sft:min-h-11 sft:md:min-h-0"}
+        unstyled={unstyled}
+      >
         {label}
       </Button>
       {isOpen ? (

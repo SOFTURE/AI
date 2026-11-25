@@ -8,9 +8,9 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 - **Revoke and Disconnect ask first:** on the token page, a token's Revoke and a connected app's Disconnect open a
   confirmation dialog that names the token or app, says it loses access at once, and offers Cancel and a destructive
-  confirm. Before, one click revoked at once, so a misclick disconnected an assistant. Cancel hands focus back to the
-  button; a refusal shows in the dialog. New `confirmButton` prop for an app's own confirmation control
-  (`TokenManagerConfirmProps`, `TokenManagerConfirmResult`). README.
+  confirm, and the button is a 44 px target on a phone. Before, one click revoked at once, so a misclick disconnected an
+  assistant. Cancel hands focus back to the button; a refusal shows in the dialog. New `confirmButton` prop for an
+  app's own confirmation control (`TokenManagerConfirmProps`, `TokenManagerConfirmResult`). README.
   - Migrate: an app with its own translation adds `list.confirmTitle`, `list.confirmText`, `grants.confirmTitle` and
     `grants.confirmText`. End-to-end tests that click Revoke or Disconnect confirm in the dialog next.
 
