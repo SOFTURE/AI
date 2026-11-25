@@ -15,3 +15,7 @@ Change the padding classes in `themes/theme-notion/src/notion/FoldRow.tsx` (summ
 - Done when: `npx vitest run themes/theme-notion` passes, typecheck and lint pass, the visual spec passes.
 
 ## Progress
+- [x] Phase 1: one inset (the three FoldRow tests red before the change; after: `npx vitest run themes/theme-notion`
+  68 files, 1324 tests passed; typecheck and lint passed; visual spec 192 passed, the four `gallery.png` baselines
+  updated, the diff confined to the FoldRow cases; opened rows measured in Chromium: default content at the chevron's
+  x (32 px), `isInset` content at the title's x (56 px)) c0f4944

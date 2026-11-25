@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-fold-row-inset
 title: "theme-notion: FoldRow's bar and opened content share one inset (issue #1463)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1463
 branch: claude/project-thread-ld8oym
 created: 2026-11-25
 updated: 2026-11-25
+archived_at: 2026-11-25
 ---
 
 ## Intent
@@ -37,3 +38,9 @@ Related, closed: #832 (equal padding on all four sides, `isInset` keeps the inde
 - research skipped: the cause (two padding classes in one file) and the fix are named in the issue; the component's
   tests and fixture are the only consumers in the repository.
 - frame skipped: a reported, reproduced visual gap with one proposed shape.
+
+## Done
+`FoldRow`'s bar and opened content share one 8 px horizontal inset (summary `px-2`, content `px-2 py-3`, actions
+`pr-2`, `isInset` content `py-2 pr-2 pl-8`), so the chevron and the details table start at the same x. Tests (red
+first), parity fixture, the four gallery baselines, README and CHANGELOG `Unreleased`; ships in the next theme-notion
+release. An adopting app drops its `fold-row-summary`/`fold-row-content` `px-2` override.
