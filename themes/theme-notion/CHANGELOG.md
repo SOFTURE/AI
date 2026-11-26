@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## 0.37.1
+## 0.38.0
 
 - `HelpTooltip` (#1503): a field's "?" hint, a ghost icon button whose tooltip opens on hover, focus, click and tap,
   closes on Escape, a press outside, blur and pointer leave, and is the 44 px touch target below `md`. A click opens
@@ -12,6 +12,9 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   trigger closes on every click). The hint is also rendered hidden under `hintId` for the field's `aria-describedby`;
   `label` (English default "Help", `notionMessages.en.helpTooltip.label`) names the button. An app drops its own "?"
   component.
+
+## 0.37.1
+
 - `RowActionsMenu` (#1502): the confirmation dialog's Cancel and confirm buttons are the 44 px touch target below `md`
   (`max-md:h-touch-target`), like the menu's items; a desktop keeps the compact 28 px buttons.
 
