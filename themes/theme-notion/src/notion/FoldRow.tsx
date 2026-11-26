@@ -67,7 +67,17 @@ export type FoldRowProps = FoldRowSummaryProps &
     readonly actions?: ReactNode;
     /** The item's status, drawn in the same column above the actions (with no actions, the column holds only it). */
     readonly status?: ReactNode;
+    /**
+     * How the bar lines up with a summary of several lines. `center` (default) centres the chevron and the right
+     * column vertically; `start` puts the chevron on the summary's first line (one line of `ui` text) and the right
+     * column at the top, the status on the first line and the actions under it.
+     */
+    readonly align?: FoldRowAlign;
   };
+
+export type FoldRowAlign = "center" | "start";
+
+const ITEMS_CLASS: Record<FoldRowAlign, string> = { center: "items-center", start: "items-start" };
 
 // The bar and its opened content share one 8 px horizontal inset, so the details start under the chevron; the inset
 // variant starts under the title instead (8 px inset, 16 px chevron, 8 px gap).
@@ -78,16 +88,18 @@ function FoldRowFixedSummary({
   title,
   facts = [],
   badges,
+  align,
 }: {
   readonly title: ReactNode;
   readonly facts?: readonly ReactNode[];
   readonly badges: readonly FoldRowBadge[];
+  readonly align: FoldRowAlign;
 }) {
   return (
     <>
       {/* The chevron and the title wrap as one: a long title folds onto lines beside its chevron. */}
-      <span data-slot="fold-row-heading" className="flex min-w-0 items-center gap-2">
-        <FoldRowChevron />
+      <span data-slot="fold-row-heading" className={cn("flex min-w-0", ITEMS_CLASS[align], "gap-2")}>
+        <FoldRowChevron align={align} />
         <span className="min-w-0 text-ui-medium">{title}</span>
       </span>
       {facts.map((fact, index) => (
@@ -118,13 +130,22 @@ function FoldRowFixedSummary({
   );
 }
 
-function FoldRowChevron() {
-  return (
+function FoldRowChevron({ align }: { readonly align: FoldRowAlign }) {
+  const chevron = (
     <ChevronRight
       aria-hidden="true"
       strokeWidth={ICON_STROKE_WIDTH}
       className="size-4 shrink-0 text-muted-foreground transition-transform duration-150 group-open/fold-row:rotate-90"
     />
+  );
+  if (align === "center") {
+    return chevron;
+  }
+  // A box one line of `ui` text high, so the chevron sits in the middle of the summary's first line.
+  return (
+    <span data-slot="fold-row-chevron" className="flex h-lh shrink-0 items-center text-ui">
+      {chevron}
+    </span>
   );
 }
 
@@ -134,7 +155,7 @@ function isDrawn(node: ReactNode): boolean {
 
 // An item as one folding list row: a native `<details>` that opens in place to its details, with no client state.
 export function FoldRow(props: FoldRowProps) {
-  const { actions, status, isInset = false } = props;
+  const { actions, status, isInset = false, align = "center" } = props;
   if (!isDrawn(actions) && !isDrawn(status)) {
     return (
       <FoldRowDetails
@@ -160,7 +181,11 @@ export function FoldRow(props: FoldRowProps) {
       />
       <div
         data-slot="fold-row-actions"
-        className="flex flex-wrap items-center gap-2 rounded-b-md pr-2 pb-1 pl-8 transition-colors duration-120 group-hover/fold-row-with-actions:bg-accent peer-open/fold-row:bg-accent md:flex-col md:flex-nowrap md:items-end md:justify-center md:gap-1 md:rounded-b-none md:rounded-r-md md:py-1 md:pl-0"
+        className={cn(
+          "flex flex-wrap items-center gap-2 rounded-b-md pr-2 pb-1 pl-8 transition-colors duration-120 group-hover/fold-row-with-actions:bg-accent peer-open/fold-row:bg-accent md:flex-col md:flex-nowrap md:items-end",
+          align === "start" ? "md:justify-start" : "md:justify-center",
+          "md:gap-1 md:rounded-b-none md:rounded-r-md md:py-1 md:pl-0",
+        )}
       >
         {isDrawn(status) ? (
           <div data-slot="fold-row-status" className="flex items-center">
@@ -203,26 +228,28 @@ function FoldRowDetails(
     readonly content?: ReactNode;
   },
 ) {
-  const { isOpenInitially = false, size = "default", className, isLitByRow = false, content } = props;
+  const { isOpenInitially = false, size = "default", align = "center", className, isLitByRow = false, content } = props;
   return (
     <details data-slot="fold-row" open={isOpenInitially || undefined} className={cn("group/fold-row", className)}>
       <summary
         data-slot="fold-row-summary"
         className={cn(
-          "flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-2 py-1",
+          "flex cursor-pointer list-none flex-wrap",
+          ITEMS_CLASS[align],
+          "gap-x-2 gap-y-1 rounded-md px-2 py-1",
           !isLitByRow && "transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent",
           "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden",
           size === "touch" ? "min-h-touch-target" : "min-h-row-height",
         )}
       >
         {props.summary === undefined ? (
-          <FoldRowFixedSummary title={props.title} facts={props.facts} badges={props.badges ?? []} />
+          <FoldRowFixedSummary title={props.title} facts={props.facts} badges={props.badges ?? []} align={align} />
         ) : (
           <>
-            <FoldRowChevron />
+            <FoldRowChevron align={align} />
             <span
               data-slot="fold-row-summary-slot"
-              className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1"
+              className={cn("flex min-w-0 flex-1 flex-wrap", ITEMS_CLASS[align], "gap-x-2 gap-y-1")}
             >
               {props.summary}
             </span>

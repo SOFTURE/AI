@@ -301,3 +301,56 @@ describe("FoldRow actions", () => {
     expect(withActions).toContain('<details data-slot="fold-row" open="" class="group/fold-row peer/fold-row min-w-0 ');
   });
 });
+
+describe("FoldRow align", () => {
+  function readSlotClasses(html: string, slot: string): string[] {
+    return (new RegExp(`data-slot="${slot}"[^>]* class="([^"]+)"`).exec(html)?.[1] ?? "").split(" ");
+  }
+
+  const multiLineSummary = (
+    <span className="grid gap-1">
+      <span>Search across notes</span>
+      <span>Stage: implement 2/3</span>
+      <span>The owner finds any note by a word</span>
+    </span>
+  );
+
+  it("puts the chevron on the first line of a multi-line summary and the right column at the top with align start", () => {
+    const html = renderToStaticMarkup(
+      <FoldRow align="start" size="touch" summary={multiLineSummary} status="In progress" actions={<button type="button">Open</button>} />,
+    );
+    const summary = readSlotClasses(html, "fold-row-summary");
+    const slot = readSlotClasses(html, "fold-row-summary-slot");
+    const column = readSlotClasses(html, "fold-row-actions");
+
+    expect(summary).toContain("items-start");
+    expect(summary).not.toContain("items-center");
+    expect(slot).toContain("items-start");
+    expect(slot).not.toContain("items-center");
+    // The chevron is centred in a box one line of `ui` text high, so it sits on the summary's first line.
+    expect(readSlotClasses(html, "fold-row-chevron")).toEqual(["flex", "h-lh", "shrink-0", "items-center", "text-ui"]);
+    expect(html).toMatch(/<span data-slot="fold-row-chevron"[^>]*><svg[^>]*lucide-chevron-right/);
+    expect(column).toContain("md:justify-start");
+    expect(column).not.toContain("md:justify-center");
+  });
+
+  it("aligns the fixed title's heading to its first line with align start", () => {
+    const html = renderToStaticMarkup(<FoldRow align="start" title="A long title" badges={[]} status="Paid" />);
+
+    expect(readSlotClasses(html, "fold-row-summary")).toContain("items-start");
+    expect(readSlotClasses(html, "fold-row-heading")).toEqual(["flex", "min-w-0", "items-start", "gap-2"]);
+    expect(html).toMatch(/data-slot="fold-row-heading"[^>]*><span data-slot="fold-row-chevron"/);
+  });
+
+  it("keeps the centred bar by default and with align center", () => {
+    for (const html of [
+      renderToStaticMarkup(<FoldRow summary={multiLineSummary} status="In progress" />),
+      renderToStaticMarkup(<FoldRow align="center" summary={multiLineSummary} status="In progress" />),
+    ]) {
+      expect(readSlotClasses(html, "fold-row-summary")).toContain("items-center");
+      expect(readSlotClasses(html, "fold-row-summary-slot")).toContain("items-center");
+      expect(readSlotClasses(html, "fold-row-actions")).toContain("md:justify-center");
+      expect(html).not.toContain("fold-row-chevron");
+    }
+  });
+});
