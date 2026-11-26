@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.37.1
 
 - `RowActionsMenu` (#1502): the confirmation dialog's Cancel and confirm buttons are the 44 px touch target below `md`
   (`max-md:h-touch-target`), like the menu's items; a desktop keeps the compact 28 px buttons.
