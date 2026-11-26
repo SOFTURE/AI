@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { readTextNodes } from "../support.js";
 
-import { FoldRow } from "../../src/notion/FoldRow.js";
+import { FoldRow, type FoldRowProps } from "../../src/notion/FoldRow.js";
 
 function readAttribute(html: string, name: string): string[] {
   return [...html.matchAll(new RegExp(`${name}="([^"]+)"`, "g"))].map((match) => match[1] ?? "");
@@ -352,5 +352,46 @@ describe("FoldRow align", () => {
       expect(readSlotClasses(html, "fold-row-actions")).toContain("md:justify-center");
       expect(html).not.toContain("fold-row-chevron");
     }
+  });
+});
+
+describe("FoldRow sideLayout (#1508)", () => {
+  function readSlotOpening(html: string, slot: string): string {
+    return new RegExp(`<\\w+ data-slot="${slot}"[^>]*>`).exec(html)?.[0] ?? "";
+  }
+
+  function readSlotClasses(html: string, slot: string): string[] {
+    return (/class="([^"]*)"/.exec(readSlotOpening(html, slot))?.[1] ?? "").split(" ");
+  }
+
+  const renderRow = (props: Pick<FoldRowProps, "sideLayout" | "align"> = {}) =>
+    renderToStaticMarkup(
+      <FoldRow title="softure/ai" badges={[]} status={<span>Readable</span>} actions={<button type="button">Delete</button>} {...props} />,
+    );
+
+  it("stacks the status over the actions from md up by default", () => {
+    for (const html of [renderRow(), renderRow({ sideLayout: "stack" })]) {
+      expect(readSlotOpening(html, "fold-row-actions")).toContain('data-side-layout="stack"');
+      expect(readSlotClasses(html, "fold-row-actions")).toEqual(expect.arrayContaining(["md:flex-col", "md:items-end"]));
+    }
+  });
+
+  it("with inline, keeps the status and then the actions on one right-aligned line from md up", () => {
+    const html = renderRow({ sideLayout: "inline" });
+    const column = readSlotClasses(html, "fold-row-actions");
+
+    expect(readSlotOpening(html, "fold-row-actions")).toContain('data-side-layout="inline"');
+    expect(column).toEqual(expect.arrayContaining(["flex", "flex-wrap", "items-center", "md:flex-row", "md:justify-end", "md:items-center", "md:gap-2"]));
+    expect(column).not.toContain("md:flex-col");
+    expect(column).not.toContain("md:items-end");
+    expect(column).not.toContain("md:justify-center");
+    expect(html.indexOf('data-slot="fold-row-status"')).toBeLessThan(html.indexOf('data-slot="fold-row-action-list"'));
+  });
+
+  it("with inline and align start, puts the line at the top of the bar", () => {
+    const column = readSlotClasses(renderRow({ sideLayout: "inline", align: "start" }), "fold-row-actions");
+
+    expect(column).toContain("md:items-start");
+    expect(column).not.toContain("md:items-center");
   });
 });

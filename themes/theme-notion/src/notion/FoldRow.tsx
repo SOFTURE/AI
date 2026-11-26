@@ -6,6 +6,7 @@ import { Badge } from "../ui/badge.js";
 
 import { DetailTable, type DetailRow } from "./DetailTable.js";
 import { ICON_STROKE_WIDTH } from "./icon-stroke.js";
+import type { SideLayout } from "./List.js";
 import { TONE_COLORS, type Tone } from "./tones.js";
 
 export interface FoldRowBadge {
@@ -73,11 +74,31 @@ export type FoldRowProps = FoldRowSummaryProps &
      * column at the top, the status on the first line and the actions under it.
      */
     readonly align?: FoldRowAlign;
+    /**
+     * How the right column lays out the status and the actions from `md` up. `stack` (default): the status on top,
+     * the actions under it. `inline`: the status left of the actions, on one line, right-aligned (centred on the bar
+     * with `align="center"`, at its top with `align="start"`). Below `md` the column is one line under the summary
+     * either way.
+     */
+    readonly sideLayout?: SideLayout;
   };
 
 export type FoldRowAlign = "center" | "start";
 
 const ITEMS_CLASS: Record<FoldRowAlign, string> = { center: "items-center", start: "items-start" };
+
+// The right column from `md` up: a column (status over actions) or one line (status, then actions), placed on the bar
+// by `align` along whichever axis runs across the bar.
+const FOLD_ROW_COLUMN_CLASS: Record<SideLayout, Record<FoldRowAlign, string>> = {
+  stack: {
+    center: "md:flex-col md:flex-nowrap md:items-end md:justify-center md:gap-1",
+    start: "md:flex-col md:flex-nowrap md:items-end md:justify-start md:gap-1",
+  },
+  inline: {
+    center: "md:flex-row md:flex-wrap md:items-center md:justify-end md:gap-2",
+    start: "md:flex-row md:flex-wrap md:items-start md:justify-end md:gap-2",
+  },
+};
 
 // The bar and its opened content share one 8 px horizontal inset, so the details start under the chevron; the inset
 // variant starts under the title instead (8 px inset, 16 px chevron, 8 px gap).
@@ -155,7 +176,7 @@ function isDrawn(node: ReactNode): boolean {
 
 // An item as one folding list row: a native `<details>` that opens in place to its details, with no client state.
 export function FoldRow(props: FoldRowProps) {
-  const { actions, status, isInset = false, align = "center" } = props;
+  const { actions, status, isInset = false, align = "center", sideLayout = "stack" } = props;
   if (!isDrawn(actions) && !isDrawn(status)) {
     return (
       <FoldRowDetails
@@ -181,10 +202,11 @@ export function FoldRow(props: FoldRowProps) {
       />
       <div
         data-slot="fold-row-actions"
+        data-side-layout={sideLayout}
         className={cn(
-          "flex flex-wrap items-center gap-2 rounded-b-md pr-2 pb-1 pl-8 transition-colors duration-120 group-hover/fold-row-with-actions:bg-accent peer-open/fold-row:bg-accent md:flex-col md:flex-nowrap md:items-end",
-          align === "start" ? "md:justify-start" : "md:justify-center",
-          "md:gap-1 md:rounded-b-none md:rounded-r-md md:py-1 md:pl-0",
+          "flex flex-wrap items-center gap-2 rounded-b-md pr-2 pb-1 pl-8 transition-colors duration-120 group-hover/fold-row-with-actions:bg-accent peer-open/fold-row:bg-accent",
+          FOLD_ROW_COLUMN_CLASS[sideLayout][align],
+          "md:rounded-b-none md:rounded-r-md md:py-1 md:pl-0",
         )}
       >
         {isDrawn(status) ? (

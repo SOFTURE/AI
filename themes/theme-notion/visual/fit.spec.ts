@@ -510,3 +510,94 @@ test("a list entry keeps its inline control and its menu button on one line unde
   await expect(dialog).toBeHidden();
   await expect(trigger).toBeFocused();
 });
+
+interface LineBox {
+  readonly left: number;
+  readonly right: number;
+  readonly top: number;
+  readonly bottom: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+function readMiddle(box: LineBox): number {
+  return box.top + box.height / 2;
+}
+
+// #1508: with sideLayout="inline" a ListEntry puts its state left of its controls, on one line at the right of the row
+// (a watched repository: a badge and a trash can). On a phone the column wraps under the identity, right-aligned, and
+// the controls keep their 44 px targets.
+test("an inline list entry keeps its state left of its controls on one line", async ({ page }, testInfo) => {
+  await page.goto(PAGE_URL);
+  await page.evaluate(() => document.fonts.ready);
+  const entries = page.locator('[data-gallery-list-entry-inline] [data-slot="list-entry"]');
+  await expect(entries).toHaveCount(2);
+  for (const entry of await entries.all()) {
+    const boxes = await entry.evaluate((element) => {
+      const toBox = (target: Element | null | undefined, name: string) => {
+        if (target === null || target === undefined) throw new Error(`no ${name} in the list entry`);
+        const { left, right, top, bottom, width, height } = target.getBoundingClientRect();
+        return { left, right, top, bottom, width, height };
+      };
+      const find = (slot: string) => element.querySelector(`[data-slot="${slot}"]`);
+      const controls = [...(find("list-entry-actions")?.querySelectorAll("button") ?? [])];
+      return {
+        row: toBox(element, "row"),
+        identity: toBox(find("list-entry-identity"), "identity"),
+        side: toBox(find("list-entry-side"), "side"),
+        badge: toBox(find("result-badge"), "badge"),
+        firstControl: toBox(controls[0], "first control"),
+        lastControl: toBox(controls.at(-1), "last control"),
+      };
+    });
+    const { row, identity, side, badge, firstControl, lastControl } = boxes;
+    const rowPadding = 8;
+
+    expect(badge.right).toBeLessThanOrEqual(firstControl.left);
+    expect(Math.abs(readMiddle(badge) - readMiddle(firstControl))).toBeLessThanOrEqual(2);
+    expect(lastControl.right).toBeCloseTo(row.right - rowPadding, 0);
+    expect(side.right).toBeCloseTo(row.right - rowPadding, 0);
+
+    if (testInfo.project.name.startsWith("phone")) {
+      expect(side.top).toBeGreaterThanOrEqual(identity.bottom);
+      expect(firstControl.height).toBeGreaterThanOrEqual(44);
+      expect(firstControl.width).toBeGreaterThanOrEqual(44);
+    } else {
+      expect(side.left).toBeGreaterThanOrEqual(identity.right);
+      // One line: the badge stands level with the title's line, not above the controls.
+      expect(badge.top).toBeLessThan(identity.top + 20);
+    }
+  }
+});
+
+// #1508: from md up an inline FoldRow puts its status left of its actions, on one line at the right of the bar.
+test("an inline fold row keeps its status left of its actions on one line from md up", async ({ page }, testInfo) => {
+  await page.goto(PAGE_URL);
+  await page.evaluate(() => document.fonts.ready);
+  const row = page.locator('[data-gallery-fold-row-inline] [data-slot="fold-row-with-actions"]');
+  const boxes = await row.evaluate((element) => {
+    const toBox = (target: Element | null | undefined, name: string) => {
+      if (target === null || target === undefined) throw new Error(`no ${name} in the fold row`);
+      const { left, right, top, bottom, width, height } = target.getBoundingClientRect();
+      return { left, right, top, bottom, width, height };
+    };
+    const find = (slot: string) => element.querySelector(`[data-slot="${slot}"]`);
+    return {
+      details: toBox(find("fold-row"), "details"),
+      column: toBox(find("fold-row-actions"), "column"),
+      status: toBox(find("result-badge"), "status"),
+      action: toBox(find("fold-row-action-list")?.firstElementChild, "action"),
+    };
+  });
+  const { details, column, status, action } = boxes;
+
+  expect(status.right).toBeLessThanOrEqual(action.left);
+  expect(Math.abs(readMiddle(status) - readMiddle(action))).toBeLessThanOrEqual(2);
+  if (testInfo.project.name.startsWith("phone")) {
+    expect(column.top).toBe(details.bottom);
+    expect(action.height).toBeGreaterThanOrEqual(44);
+  } else {
+    expect([column.top, column.bottom]).toEqual([details.top, details.bottom]);
+    expect(column.left).toBe(details.right);
+  }
+});

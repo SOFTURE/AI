@@ -240,7 +240,10 @@ the column falls under the summary and each action is at least 44 px. With a col
 as the details' sibling, shown while it is open. By default the chevron and the column are centred on the bar;
 `align="start"` lines both up with the summary's first line instead, for a summary of several lines (a title, a stage,
 an outcome): the chevron sits in a box one line of `ui` text high (`data-slot="fold-row-chevron"`), and the column is
-top-aligned, the status on the first line and the actions under it. `isOpenInitially` renders the row open (`<details open>`), for the row the
+top-aligned, the status on the first line and the actions under it. `sideLayout="inline"` puts the status left of
+the actions on one line from `md` up instead (state left of the controls, right-aligned, wrapping when it runs out of
+room; centred on the bar, or at its top with `align="start"`); below `md` the column is one line under the summary
+either way. `isOpenInitially` renders the row open (`<details open>`), for the row the
 address points at; only the first render reads it, and the reader can still fold the row.
 
 ```tsx
@@ -250,6 +253,7 @@ address points at; only the first render reads it, and the reader can still fold
 </FoldRow>
 <FoldRow title="clip.mp4" badges={[]} status={<Status color="green">Paid</Status>} actions={<DeleteButton />} />
 <FoldRow align="start" size="touch" summary={<ItemLines />} status={<Status color="blue">In progress</Status>} actions={<OpenButton />} />
+<FoldRow sideLayout="inline" title="softure/ai" badges={[]} status={<ResultBadge tone="success">Readable</ResultBadge>} actions={<DeleteButton />} />
 ```
 
 **`FilterChip`.** The filters above a list or a table, drawn the way a Notion database view draws them: a 24 px pill
@@ -542,8 +546,12 @@ column stays above the link: its controls are their own targets, and a click on 
 still opens the row. Pass `linkComponent` for a router's link (it takes `href`, `className` and `children`). On a
 phone (below `md`) the column wraps under the identity, right-aligned, and every control is at least the touch target
 (44 px). A control that needs room while it is open (an inline answer form) carries `data-row-wide`: the column then
-takes the full row width under the identity, its lines starting on the left. Place the row in a `ListItem`, so it
-follows the list's density.
+takes the full row width under the identity, its lines starting on the left. `sideLayout="inline"` puts the state
+left of the controls on one line instead of over them (a watched repository: a "Readable" badge, then its delete
+button): the status first, then the inline control and the menu, right-aligned and wrapping when the line runs out of
+room; a `data-row-wide` control still takes the full-width column, and on a phone the line wraps under the identity
+with the same 44 px targets. The default, `stack`, keeps the state over the controls. Place the row in a `ListItem`, so
+it follows the list's density.
 
 ```tsx
 <List aria-label="Deploys">
@@ -560,6 +568,16 @@ follows the list's density.
     </ListItem>
   ))}
 </List>
+```
+
+```tsx
+<ListEntry
+  sideLayout="inline"
+  title={repository.name}
+  details={<span>{repository.watchedSince}</span>}
+  status={<ResultBadge tone="success">{t.repositories.readable}</ResultBadge>}
+  actions={<Button variant="ghost" size="icon-sm" aria-label={t.repositories.stopWatching}><Trash2 /></Button>}
+/>
 ```
 
 **Row controls and row state.** A row shows at most one control inline in `actions`: a switch, or the row's one
