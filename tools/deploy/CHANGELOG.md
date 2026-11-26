@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
-## Unreleased
+## 0.7.10
 
 - **`deploy-tested-tree.yml` also reads the tag's own commit and older pull requests.** It answers `tested: "true"`
   when the named checks succeeded on the tag's commit itself (a release gate dispatched on the release branch before
