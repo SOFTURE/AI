@@ -82,6 +82,7 @@ import { CircleCheck } from "lucide-react";
 wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHeader crumbsLabel`,
 `DialogContent closeLabel`, `DialogFooter closeLabel` (the `showCloseButton` button's text), `SheetContent closeLabel`, `SidePanel closeLabel`, `AsidePanelToggle showLabel hideLabel`,
 `AsidePanel widenLabel narrowLabel closeLabel`, `AsidePanelSidebarOpener label`, `Steps stateLabels`, `CopyButton label copiedLabel`, `HelpTooltip label`,
+`DatePicker messages`, `DateTimePicker messages`,
 `Sidebar mobileTitle mobileDescription`, `SidebarTrigger label`, `SidebarRail label`, `Spinner aria-label`,
 `CommandDialog title description` (`title` also names its search field), `Command label` (the search field's
 name outside a `CommandDialog`; without it the field has none), `SortableList instructions announcements`, `SortableHandle label`.
@@ -155,6 +156,7 @@ list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filte
 stages with a state, below), `Timeline` (dated entries on a vertical rail, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below),
 `CopyButton` (one value to the clipboard, with a moment of "Copied", below),
 `HelpTooltip` (a field's "?" hint that opens on hover, focus, click and tap, below),
+`DatePicker` and `DateTimePicker` (a day, or a local date and time, picked from the theme's calendar, below),
 `Prose` (the text styles of a long read the app does not draw itself, such as Markdown rendered to HTML, below),
 `SortableList`, `SortableItem`, `SortableHandle` and `SortableActivator` (rows reordered by dragging, below),
 `List`, `ListItem` and `ListRow` (a list of rows, compact or roomy by the page's density, below),
@@ -733,6 +735,42 @@ client component. `data-slot="help-tooltip-trigger"` on the button, `data-slot="
   <HelpTooltip label="Help for Email" hintId="email-hint">The address we send receipts to.</HelpTooltip>
 </div>
 <Input id="email" type="email" aria-describedby="email-hint" />
+```
+
+**`DatePicker`, `DateTimePicker`.** A day, or a local date and time, picked in the theme's look instead of the
+browser's native date and time inputs. The trigger has the `Input` look (the 44 px touch height below `md`), a calendar
+icon, the value in the app's `locale` (`en-US` by default: "Nov 26, 2026", "Nov 26, 2026, 9:30 AM") or the
+placeholder, and the app's `timeZone` as a muted suffix. It opens a `Popover` with a month calendar that follows the
+WAI-ARIA date picker pattern: a `grid` labelled by the month, focus on the chosen day (else today in `timeZone`),
+arrows by day and week, Page Up/Down by month (with Shift by year), Home/End to the week's edges, Enter or Space to
+choose, Escape to close; `aria-selected` on the chosen day, `aria-current="date"` on today, the week from
+`weekStartsOn` (Monday by default). Days outside `min` / `max` are disabled, and the keys and the month buttons stay
+inside them. `DateTimePicker` adds an hours and a minutes field (native selects with the field look, so a phone opens
+its own wheel), the minutes by `minuteStep` (1 by default; 5 or 15 are common), and a Done button; the time field
+waits for a day, a first day starts at `defaultTime` (`09:00`), a new day keeps the chosen time, and a time outside
+`min` / `max` moves to the nearest allowed one. `DatePicker` closes when a day is chosen.
+
+The value is a string with no zone: `YYYY-MM-DD` for `DatePicker`, `YYYY-MM-DDTHH:mm` (core's `LocalDateTime`) for
+`DateTimePicker`, controlled (`value`, `onValueChange`, `null` for none) or not (`defaultValue`); a value that is not
+one of those counts as none. With `name`, a hidden input carries it, so a server action form needs no client state.
+The app turns it into an instant with core's `getLocalDateTimeInstant(value, timeZone)` after `isLocalDateTime`.
+`open`, `defaultOpen` and `onOpenChange` drive the popover; the trigger takes a button's props (`id` for a `Label`,
+`aria-invalid`, `aria-describedby`, `disabled`); name it with a `Label`, not `aria-label`, which would hide the shown
+value from its name. `messages` replaces the English copy (`notionMessages.en.datePicker`).
+A client component. `data-slot="date-picker-trigger"`, `date-picker-value`, `date-picker-time-zone`,
+`date-picker-calendar`, `date-picker-caption`, `date-picker-grid`, `date-picker-time`; each day button carries
+`data-day="YYYY-MM-DD"`.
+
+```tsx
+<Label htmlFor="publish-at">Publish at</Label>
+<DateTimePicker
+  id="publish-at"
+  name="publishAt"
+  locale="pl-PL"
+  timeZone="Europe/Warsaw"
+  min={nowInWarsaw}
+  minuteStep={15}
+/>
 ```
 
 **`Prose`.** A long read whose elements the app does not draw itself, such as Markdown rendered to HTML (a help page,

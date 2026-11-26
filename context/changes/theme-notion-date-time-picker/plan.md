@@ -38,5 +38,5 @@ by `minuteStep`, options outside `min` / `max` disabled) and a Done button. A hi
 - Released as a minor: new exports, no change to existing ones.
 
 ## Progress
-- [ ] Phase 1: DatePicker and DateTimePicker (TDD)
+- [x] Phase 1: DatePicker and DateTimePicker (TDD) (red first: `tests/notion/DatePicker.test.tsx` failed to load the missing module; after: 17 tests pass, `npx vitest run themes/theme-notion` 74 files, 1455 tests passed; fixture by `UPDATE_FIXTURES=1`; visual baselines in Chromium 1243, 216 passed with axe clean after the gallery labels the triggers with `Label` (axe caught `label-content-name-mismatch` for an `aria-label` trigger, noted in the README); the open case looked at in desktop light and phone dark: Monday-first grid, disabled days before min, the chosen day filled, 44 px days on the phone; typecheck, lint and build pass)
 - [ ] Phase 2: Design System artifact
