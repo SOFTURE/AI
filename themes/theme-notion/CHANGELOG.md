@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `Checkbox` indeterminate state (#1514): `checked="indeterminate"` draws the filled `primary` box of `checked` with a
+  minus sign (lucide `MinusIcon`) instead of an outlined tick, so a "some selected" group box reads as mixed
+  (WAI-ARIA tri-state checkbox, `aria-checked="mixed"`). The icon follows Radix's `data-state`, controlled or not. An
+  app drops its own indeterminate checkbox override.
+
 ## 0.39.0
 
 - `DatePicker` and `DateTimePicker` (#1509): a day (`YYYY-MM-DD`) or a local date-time (`YYYY-MM-DDTHH:mm`, core's

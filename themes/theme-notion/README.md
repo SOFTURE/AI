@@ -1078,9 +1078,10 @@ Deltas from stock shadcn:
   before `children`, so a form dialog's footer reads cancel then confirm (confirm on top on a phone); the button is
   `type="button"`, so inside a `<form>` it closes the dialog without submitting. `card`: `shadow-card` instead of a
   border.
-- `checkbox` 16 px with a 1.5 px border, `radio-group` drawn the same (round, a `primary` dot), `switch` 26 × 16
-  (thumb shadow in `SWITCH_THUMB_SHADOW_CLASS`, for a native switch drawn the same), `tooltip` dark without an arrow,
-  `tabs` default to the `line` variant, `progress` 6 px.
+- `checkbox` 16 px with a 1.5 px border; `checked="indeterminate"` (`aria-checked="mixed"`, a "some selected" group
+  box) is filled like `checked` and shows a minus sign instead of the tick. `radio-group` drawn the same (round, a
+  `primary` dot), `switch` 26 × 16 (thumb shadow in `SWITCH_THUMB_SHADOW_CLASS`, for a native switch drawn the same),
+  `tooltip` dark without an arrow, `tabs` default to the `line` variant, `progress` 6 px.
 - `tabs`: `TabsList scrollable` is a tab strip wider than a phone screen. It keeps to its container's width
   (`w-full min-w-0`, and the `Tabs` root gets `min-w-0`, so a grid or flex parent does not widen to the tabs), scrolls
   sideways by touch, wheel and the arrow keys (focus moves to the next tab), keeps every trigger at its own width and
