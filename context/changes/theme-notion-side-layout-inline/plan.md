@@ -43,4 +43,8 @@ JSDoc, README and CHANGELOG describe the rule: the state left of the controls, o
   new cases added), `visual/fit.spec.ts` ListEntry/FoldRow tests 24 passed on the four projects, `visual/gallery.spec.ts`
   148 passed with only `gallery.png` re-baselined (the new cases), typecheck, ESLint, the language gate and
   `npm run build` passed) 0f8de9c
-- [ ] Phase 2: Design System artifact
+- [x] Phase 2: Design System artifact (version 101-102: `ListEntry` and `FoldRow` patched in `bundle.js` (prop
+  `sideLayout`, `data-side-layout`, the inline class strings), 6 rules appended to `bundle.css` as a trailing
+  `@layer utilities{}` (diffed with postcss against the gallery's compiled css), `SideLayout` in `index.d.ts`, an
+  inline example and a note on the List and FoldRow cards; rendered in Chromium at 1280 and 390 px: the badge ends 8 px
+  before the control, their middles equal, no console error)
