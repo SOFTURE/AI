@@ -595,11 +595,14 @@ the tone's icon (`RESULT_BADGE_ICONS`: `CircleCheck`, `TriangleAlert`, `CircleX`
 `icon` for another) and always a word. The app keeps its own table of which result takes which tone; the theme owns
 the colours, so "failed" is red in every list. `isSpinning` marks a run still in progress: the icon (a
 `LoaderCircle` unless `icon` is given) spins with `motion-safe:animate-spin`, still for a reader who asked for reduced
-motion. `Status` is the ghost counterpart, for a state written in text colour.
+motion. `Status` is the ghost counterpart, for a state written in text colour. Every other `span` prop (`data-*`,
+`id`, ARIA) reaches the badge, so an app marks it with what it shows and its tests read that; the theme's own
+`data-slot`, `data-tone`, `data-color` and `data-spinning` always win.
 
 ```tsx
 <ResultBadge tone="danger">Failed</ResultBadge>
 <ResultBadge tone="muted" isSpinning>Running</ResultBadge>
+<ResultBadge tone="success" data-read-status="ok">Read</ResultBadge>
 ```
 
 **`ListGroup`, `ListGroupHeading`: a sticky group heading.** A heading over a run of rows (a country's days, a month's

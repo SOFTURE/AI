@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `ResultBadge` (#1493): every other `span` prop (`data-*`, `id`, ARIA) reaches the badge, so an app marks a badge
+  with what it shows (`data-read-status="ok"`) without wrapping it. The theme's `data-slot`, `data-tone`,
+  `data-color` and `data-spinning` stay the theme's.
+
 ## 0.35.0
 
 - `RowActionsMenu` (#1486): a row's overflow menu. An icon-only "More actions" button (`label` for the app's words)
