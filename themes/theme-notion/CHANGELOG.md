@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.38.0
 
 - `HelpTooltip` (#1503): a field's "?" hint, a ghost icon button whose tooltip opens on hover, focus, click and tap,
   closes on Escape, a press outside, blur and pointer leave, and is the 44 px touch target below `md`. A click opens
