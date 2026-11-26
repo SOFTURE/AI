@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-checkbox-indeterminate
 title: "theme-notion: Checkbox draws the indeterminate state (issue #1514)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1514
 branch: claude/project-thread-j3s71q
 created: 2026-11-26
 updated: 2026-11-26
+archived_at: 2026-11-26
 ---
 
 ## Intent
@@ -32,3 +33,10 @@ state looks like a second kind of "checked".
 
 ## Notes
 - frame skipped: a bug with the expected look and a proposed fix in the issue.
+
+## Done
+`Checkbox` with `checked="indeterminate"` (`aria-checked="mixed"`) draws the filled `primary` box of `checked` with a
+minus sign instead of the tick; the icon follows the indicator's `data-state`, controlled or not. Unit tests (red
+first), the gallery case and `gallery.png` baselines, upstream deltas, parity fixture, README, CHANGELOG `Unreleased`,
+the Design System artifact (v105-106). Ships in the next theme-notion release; an adopting app drops its own
+indeterminate checkbox override after the bump.

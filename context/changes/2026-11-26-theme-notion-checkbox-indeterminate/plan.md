@@ -39,4 +39,9 @@ The upstream deltas, README (controls line) and CHANGELOG `## Unreleased` descri
   Chromium on the gallery, light and dark: the indeterminate box has `data-state="indeterminate"`,
   `aria-checked="mixed"`, the checked box's background and border `rgb(1, 113, 207)`, the minus icon shown (14 px)
   and the tick `display: none`; typecheck, ESLint, the language gate and `npm run build` passed)
-- [ ] Phase 2: Design System artifact
+- [x] Phase 2: Design System artifact (version 105-106: `Checkbox` patched in `bundle.js` (a lucide `minus` icon, the
+  indeterminate classes, both icons in the indicator), 7 rules appended to `bundle.css` as a trailing
+  `@layer utilities{}` (taken with postcss from the gallery's compiled css), a group box with
+  `defaultChecked: "indeterminate"` and a note on the Checkbox card; rendered in Chromium light and dark: the
+  indeterminate box `aria-checked="mixed"`, background `rgb(1, 113, 207)` like the checked ones, minus shown, tick
+  `display: none`, no page error)
