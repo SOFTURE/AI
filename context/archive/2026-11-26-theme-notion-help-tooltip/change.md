@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-help-tooltip
 title: "theme-notion: a help tooltip that opens on hover, focus, click and tap (issue #1503)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 1503
 branch: claude/project-thread-crcwk2
 created: 2026-11-26
 updated: 2026-11-26
+archived_at: 2026-11-26
 ---
 
 ## Intent
@@ -33,3 +34,10 @@ run in five).
 
 ## Notes
 - frame skipped: the issue names the problem, the cause in Radix and the proposed component.
+
+## Done
+`HelpTooltip`: a field's "?" hint whose tooltip opens on hover, focus, click and tap, stays open after a click whatever
+the pointer did between press and release, closes on Escape, a press outside, blur and pointer leave, is the 44 px
+touch target below `md`, and renders the hint hidden under `hintId` for `aria-describedby`. Tests (the race red
+first), gallery case, fixture, visual baselines, README, CHANGELOG `Unreleased`, the Design System artifact
+(v99-100). An adopting app drops its own "?" component.
