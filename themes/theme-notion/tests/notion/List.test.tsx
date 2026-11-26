@@ -351,3 +351,48 @@ describe("ListEntry menu (#1486)", () => {
     expect(readClasses(readOpening(html, "list-entry-actions"))).toContain("flex-wrap");
   });
 });
+
+describe("ListEntry sideLayout (#1508)", () => {
+  const renderEntry = (props: Partial<ListEntryProps> = {}) =>
+    renderToStaticMarkup(
+      <ListEntry
+        title="softure/ai"
+        details={<span>Watched since 3 March</span>}
+        status={<span>Readable</span>}
+        actions={<button type="button">Delete</button>}
+        {...props}
+      />,
+    );
+
+  it("stacks the status over the controls by default", () => {
+    for (const html of [renderEntry(), renderEntry({ sideLayout: "stack" })]) {
+      const column = readOpening(html, "list-entry-column");
+
+      expect(column).toContain('data-side-layout="stack"');
+      expect(readClasses(column)).toEqual(expect.arrayContaining(["flex-col", "items-end", "gap-1"]));
+      expect(readClasses(column)).not.toContain("flex-row");
+    }
+  });
+
+  it("with inline, puts the status and then the controls on one right-aligned line that wraps", () => {
+    const html = renderEntry({ sideLayout: "inline", menu: <button type="button">More</button> });
+    const column = readOpening(html, "list-entry-column");
+
+    expect(column).toContain('data-side-layout="inline"');
+    expect(readClasses(column)).toEqual(expect.arrayContaining(["flex", "flex-row", "flex-wrap", "items-center", "justify-end", "gap-2"]));
+    expect(readClasses(column)).not.toContain("flex-col");
+    expect(readClasses(column)).not.toContain("items-end");
+    expect(html.indexOf('data-slot="list-entry-status"')).toBeLessThan(html.indexOf('data-slot="list-entry-actions"'));
+    expect(html.indexOf('data-slot="list-entry-actions"')).toBeLessThan(html.indexOf('data-slot="list-entry-menu"'));
+    // The controls keep their touch targets on a phone.
+    expect(readClasses(readOpening(html, "list-entry-actions"))).toContain("max-md:*:not-data-[slot=switch]:min-h-touch-target");
+  });
+
+  it("with inline, keeps the full-width column for a data-row-wide control", () => {
+    const column = readClasses(readOpening(renderEntry({ sideLayout: "inline" }), "list-entry-column"));
+
+    expect(column).toEqual(
+      expect.arrayContaining(["has-[[data-row-wide]]:flex-1", "has-[[data-row-wide]]:flex-col", "has-[[data-row-wide]]:items-stretch"]),
+    );
+  });
+});

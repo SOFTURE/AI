@@ -84,6 +84,15 @@ export function ListRow({ asChild = false, className, ...props }: ListRowProps) 
 /** The link a `ListEntry` title renders: a plain `a`, or the app's router link taking the same props. */
 export type ListEntryLinkComponent = ElementType<{ href: string; className?: string; children?: ReactNode }>;
 
+/** How a row's right column lays out its state and controls: stacked, or on one line with the state first. */
+export type SideLayout = "stack" | "inline";
+
+const LIST_ENTRY_COLUMN_CLASS: Record<SideLayout, string> = {
+  stack: "flex min-w-0 flex-col items-end gap-1 has-[[data-row-wide]]:flex-1 has-[[data-row-wide]]:items-stretch",
+  inline:
+    "flex min-w-0 flex-row flex-wrap items-center justify-end gap-2 has-[[data-row-wide]]:flex-1 has-[[data-row-wide]]:flex-col has-[[data-row-wide]]:items-stretch has-[[data-row-wide]]:gap-1",
+};
+
 export type ListEntryProps = Omit<ComponentProps<"div">, "title" | "children"> & {
   /** What the row is: its name, in the medium weight. With `href` it is the link that opens the row. */
   readonly title: ReactNode;
@@ -91,6 +100,12 @@ export type ListEntryProps = Omit<ComponentProps<"div">, "title" | "children"> &
   readonly details?: ReactNode;
   /** The row's state, at the top of the right column (one or more badges, which wrap right-aligned). */
   readonly status?: ReactNode;
+  /**
+   * How the right column lays out the state and the controls. `stack` (default): the state on top, the controls
+   * under it. `inline`: the state left of the controls, on one line, wrapping right-aligned; a `data-row-wide`
+   * control still takes the full-width column.
+   */
+  readonly sideLayout?: SideLayout;
   /**
    * The row's controls, under the status. They stay their own targets above the row's link, and are at least the
    * touch target (44 px) on a phone; a switch keeps its track and takes its 44 px square from `size="touch"` (with
@@ -115,7 +130,8 @@ function isDrawn(node: ReactNode): boolean {
 
 /**
  * A list row with an identity and a right column: the title and its detail lines on the left, the row's state at the
- * top of the right column and its controls under it. Both sides align to the top, so the state stands on the title's
+ * top of the right column and its controls under it (with `sideLayout="inline"`, the state left of the controls on one
+ * line). Both sides align to the top, so the state stands on the title's
  * line however many detail lines the identity has. With `href` the title is a link stretched over the whole row, so
  * the row is one box lit on hover, and an arrow sits beside the column on the title's line (never on a line of its
  * own); the column stays above the link. On a phone (below `md`) the column wraps under the identity, right-aligned. Place it in a `ListItem`.
@@ -129,6 +145,7 @@ export function ListEntry({
   title,
   details,
   status,
+  sideLayout = "stack",
   actions,
   menu,
   href,
@@ -181,7 +198,8 @@ export function ListEntry({
           {hasColumn ? (
             <div
               data-slot="list-entry-column"
-              className="flex min-w-0 flex-col items-end gap-1 has-[[data-row-wide]]:flex-1 has-[[data-row-wide]]:items-stretch"
+              data-side-layout={sideLayout}
+              className={LIST_ENTRY_COLUMN_CLASS[sideLayout]}
             >
               {hasStatus ? (
                 <div
