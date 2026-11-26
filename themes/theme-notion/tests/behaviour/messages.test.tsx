@@ -16,6 +16,7 @@ import {
   DocumentViewer,
   FileInput,
   FilterChipAdd,
+  HelpTooltip,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -151,6 +152,10 @@ const CASES: Readonly<Record<string, MessageCase>> = {
       const rail = attributeOf('[data-slot="sidebar-rail"]', "aria-label")();
       return trigger === rail ? trigger : `${String(trigger)} / ${String(rail)}`;
     },
+  },
+  "helpTooltip.label": {
+    render: (text) => <HelpTooltip {...(text === undefined ? {} : { label: text })}>Hint</HelpTooltip>,
+    read: attributeOf('[data-slot="help-tooltip-trigger"]', "aria-label"),
   },
   "filterChip.add": { render: (text) => <FilterChipAdd label={text}>{null}</FilterChipAdd>, read: textOf('[data-slot="filter-chip-add"] span') },
   ...Object.fromEntries(

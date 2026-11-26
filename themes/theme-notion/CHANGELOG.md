@@ -6,6 +6,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `HelpTooltip` (#1503): a field's "?" hint, a ghost icon button whose tooltip opens on hover, focus, click and tap,
+  closes on Escape, a press outside, blur and pointer leave, and is the 44 px touch target below `md`. A click opens
+  rather than toggles, so a press during which hover opened the tooltip no longer ends with it closed (Radix's
+  trigger closes on every click). The hint is also rendered hidden under `hintId` for the field's `aria-describedby`;
+  `label` (English default "Help", `notionMessages.en.helpTooltip.label`) names the button. An app drops its own "?"
+  component.
 - `RowActionsMenu` (#1502): the confirmation dialog's Cancel and confirm buttons are the 44 px touch target below `md`
   (`max-md:h-touch-target`), like the menu's items; a desktop keeps the compact 28 px buttons.
 

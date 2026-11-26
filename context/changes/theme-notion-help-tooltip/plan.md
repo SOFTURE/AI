@@ -3,8 +3,7 @@
 ## Approach
 `HelpTooltip` in `src/notion/HelpTooltip.tsx`: its own `TooltipProvider` (delay 0), a controlled `Tooltip`, a
 `TooltipTrigger asChild` around a ghost icon `Button` (`CircleHelp`, `size="icon"`, `max-md:size-touch-target`,
-`aria-label={label}`). The trigger's `onClick` calls `preventDefault()` and opens; its `onPointerLeave` calls
-`preventDefault()` for a touch pointer. Hover, focus, blur, a mouse leave, Escape and a press outside reach the state
+`aria-label={label}`). The trigger's `onClick` calls `preventDefault()` and opens. Hover, focus, blur, a mouse leave, Escape and a press outside reach the state
 through Radix's `onOpenChange`. The hint renders twice: in `TooltipContent` and in a `sr-only` span with `hintId`
 (given or `useId`) for the field's `aria-describedby`.
 
@@ -32,5 +31,5 @@ Props: `children` (the hint), `label` (default `messages.helpTooltip.label`, "He
 - Released as a minor: a new export, no change to existing ones.
 
 ## Progress
-- [ ] Phase 1: HelpTooltip (TDD)
+- [x] Phase 1: HelpTooltip (TDD) (the race test red first against a toggling trigger without `preventDefault()`: `stays open after a press whose pointer left and came back` failed, 7 others passed; after: `npx vitest run themes/theme-notion` 73 files, 1425 tests passed; fixture by `UPDATE_FIXTURES=1`; `gallery.png` baselines regenerated in Chromium 1243 with axe clean; Chromium check of the gallery case: a tap at 390 px opens the tooltip on a 44x44 button, the hover/press/leave/re-enter/release race at 1280 px ends open on a 28x28 button, Escape closes both, no page error)
 - [ ] Phase 2: Design System artifact

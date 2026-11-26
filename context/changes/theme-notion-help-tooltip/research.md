@@ -10,9 +10,9 @@
   app's handler called `preventDefault()`.
 - The race: hover opens, the press closes, leaving and re-entering while pressed opens again (hover), the release's
   click closes. A trigger whose click calls `preventDefault()` and opens (instead of toggling) ends open in every order.
-- On touch Radix's pointer move does nothing; a tap fires pointer down, up, leave, then click. Its leave would close a
-  tooltip that the click opened in a browser that orders them differently, so the trigger's touch `pointerleave` is
-  `preventDefault()`ed as well.
+- On touch Radix's pointer move does nothing; a tap fires pointer down, up, leave, then click. The trigger's leave
+  closes only with `disableHoverableContent`; otherwise the hoverable content closes on the next pointer move outside
+  the trigger and the tooltip, which a finger does not make, so a tapped tooltip stays open until a press outside.
 - Escape and a press outside close through `TooltipContent`'s dismissable layer (`onOpenChange(false)`).
 - Radix `Tooltip` needs a `TooltipProvider` above it; the theme only puts one in `Sidebar`. A component that works
   anywhere renders its own provider.
