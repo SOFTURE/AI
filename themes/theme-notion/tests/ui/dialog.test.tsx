@@ -41,7 +41,7 @@ describe("DialogContent", () => {
   });
 });
 
-function renderSizedDialog(size?: "sm" | "default" | "wide" | "lg") {
+function renderSizedDialog(size?: "sm" | "default" | "wide" | "lg" | "form") {
   render(
     <Dialog open>
       <DialogContent {...(size === undefined ? {} : { size })}>
@@ -104,6 +104,21 @@ describe("DialogContent size", () => {
     expect(classes).not.toContain("sm:max-w-lg");
     expect(classes).not.toContain("lg:max-w-1/2");
     expect(classes.filter((name) => /(^|:)h-/.test(name))).toEqual([]);
+  });
+
+  it("draws a form dialog max-w-2xl from md, max-w-lg from sm and inside the phone gutter below", () => {
+    const classes = renderSizedDialog("form");
+
+    expect(classes).toEqual(expect.arrayContaining(["max-w-[calc(100%-2rem)]", "sm:max-w-lg", "md:max-w-2xl"]));
+    expect(classes).not.toContain("lg:max-w-1/2");
+    expect(classes).not.toContain("sm:max-w-md");
+  });
+
+  it("keeps a form dialog's height by content up to the viewport's gutter, scrolling inside", () => {
+    const classes = renderSizedDialog("form");
+
+    expect(classes).toEqual(expect.arrayContaining(["grid", "max-h-[calc(100dvh-2rem)]", "overflow-y-auto"]));
+    expect(classes.filter((name) => /(^|:)(min-)?h-/.test(name))).toEqual([]);
   });
 
   it("lets the app's className override a size's class", () => {
@@ -193,5 +208,46 @@ describe("DialogFooter close button in a form", () => {
     const footer = document.querySelector('[data-slot="dialog-footer"]');
 
     expect(Array.from(footer?.children ?? [], (child) => child.textContent)).toEqual(["Cancel", "Save"]);
+  });
+});
+
+function renderStickyFooter(isSticky?: boolean) {
+  render(
+    <Dialog open>
+      <DialogContent size="form" showCloseButton={false}>
+        <DialogTitle>New client</DialogTitle>
+        <DialogDescription>Fill in the client's details.</DialogDescription>
+        <DialogFooter showCloseButton closeLabel="Cancel" {...(isSticky === undefined ? {} : { sticky: isSticky })}>
+          <Button type="submit">Create</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>,
+  );
+  return document.querySelector('[data-slot="dialog-footer"]');
+}
+
+describe("DialogFooter sticky", () => {
+  it("stays at the bottom edge of a scrolling dialog with a top border, bleeding over the content's padding", () => {
+    const footer = renderStickyFooter(true);
+
+    expect(readClasses(footer)).toEqual(
+      expect.arrayContaining(["sticky", "-bottom-6", "-mx-6", "-mb-6", "border-t", "border-border", "bg-popover", "px-6", "py-4"]),
+    );
+    expect(footer?.getAttribute("data-sticky")).toBe("true");
+  });
+
+  it("keeps the phone column with the primary on top and the row from sm", () => {
+    const footer = renderStickyFooter(true);
+
+    expect(readClasses(footer)).toEqual(expect.arrayContaining(["flex", "flex-col-reverse", "sm:flex-row", "sm:justify-end"]));
+    expect(Array.from(footer?.children ?? [], (child) => child.textContent)).toEqual(["Cancel", "Create"]);
+  });
+
+  it("flows with the content by default", () => {
+    const footer = renderStickyFooter();
+
+    expect(readClasses(footer)).not.toContain("sticky");
+    expect(readClasses(footer)).not.toContain("border-t");
+    expect(footer?.hasAttribute("data-sticky")).toBe(false);
   });
 });

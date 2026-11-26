@@ -67,7 +67,8 @@ function DialogContent({
   // `wide` is half the viewport from `lg`, `max-w-lg` below it.
   // `lg` is the standard popup: a quarter of the viewport free on every side from `lg`, its content scrolling.
   // `sm` is a small popup for little data, narrower than the default.
-  size?: "sm" | "default" | "wide" | "lg"
+  // `form` is a create or edit form: `max-w-2xl` from `md`, its height by content, scrolling inside on a short screen.
+  size?: "sm" | "default" | "wide" | "lg" | "form"
 }) {
   return (
     <DialogPortal data-slot="dialog-portal">
@@ -81,6 +82,7 @@ function DialogContent({
           size === "lg" &&
             "flex h-[calc(100dvh-2rem)] flex-col overflow-y-auto sm:h-3/4 sm:max-w-3/4 lg:h-1/2 lg:min-h-96 lg:max-w-1/2",
           size === "sm" && "max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md",
+          size === "form" && "max-h-[calc(100dvh-2rem)] overflow-y-auto md:max-w-2xl",
           className
         )}
         {...props}
@@ -118,18 +120,24 @@ function DialogFooter({
   className,
   showCloseButton = false,
   closeLabel = messages.dialog.close,
+  sticky = false,
   children,
   ...props
 }: React.ComponentProps<"div"> & {
   showCloseButton?: boolean
   // The close button's text, from the app's message layer.
   closeLabel?: string
+  // Keeps the footer at the bottom edge of a scrolling dialog, over the content's `p-6`.
+  sticky?: boolean
 }) {
   return (
     <div
       data-slot="dialog-footer"
+      data-sticky={sticky ? "true" : undefined}
       className={cn(
         "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+        sticky &&
+          "sticky -bottom-6 -mx-6 -mb-6 border-t border-border bg-popover px-6 py-4",
         className
       )}
       {...props}

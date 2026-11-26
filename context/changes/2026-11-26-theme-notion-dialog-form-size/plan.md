@@ -31,5 +31,13 @@ The upstream deltas, the parity fixture, README (dialog line) and CHANGELOG `## 
 - Release: a minor (new props, no change for existing callers, no dependent range broken).
 
 ## Progress
-- [ ] Phase 1: form size and sticky footer (TDD)
+- [x] Phase 1: form size and sticky footer (TDD) (red first: the 3 new class tests in `tests/ui/dialog.test.tsx`
+  failed (no `form` size, no sticky footer); after: `npx vitest run themes/theme-notion` 1474 passed (parity fixture
+  regenerated with `UPDATE_FIXTURES=1`, only the new `Dialog[size=form]` entry added), `visual/gallery.spec.ts` 156
+  passed with only the 4 new `Dialog-size-form-.png` baselines written (axe clean); Chromium on the gallery case,
+  after the open animation: desktop 1440 x 900 the dialog is 672 px wide and 868 px high (viewport minus 32), scroll
+  height 920, the footer's bottom equals the dialog's (884) at scroll top and at scroll end, Cancel then the primary
+  in a row; phone 390 x 844 the dialog is 358 x 812, both buttons 310 px (full width inside `p-6`), the primary on
+  top (748 vs 784), the footer's bottom equals the dialog's (828); typecheck, ESLint, the language gate and
+  `npm run build` passed)
 - [ ] Phase 2: Design System artifact

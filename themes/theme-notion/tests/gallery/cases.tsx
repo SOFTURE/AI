@@ -792,6 +792,33 @@ const UI_CASES: readonly GalleryCase[] = [
     ),
   },
   {
+    name: "Dialog[size=form]",
+    component: "Dialog",
+    root: '[data-slot="dialog-content"]',
+    isIsolated: true,
+    render: () => (
+      <Dialog defaultOpen>
+        <DialogContent size="form">
+          <DialogHeader>
+            <DialogTitle>New client</DialogTitle>
+            <DialogDescription>The client appears in the list once saved.</DialogDescription>
+          </DialogHeader>
+          <FieldGroup>
+            {["Name", "Company", "Email", "Phone", "Street", "City", "Postcode", "Country", "Tax ID"].map((label) => (
+              <Field key={label}>
+                <FieldLabel htmlFor={`client-${label}`}>{label}</FieldLabel>
+                <Input id={`client-${label}`} />
+              </Field>
+            ))}
+          </FieldGroup>
+          <DialogFooter sticky showCloseButton closeLabel="Cancel">
+            <Button>Create client</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    ),
+  },
+  {
     name: "DialogClose",
     component: "DialogClose",
     root: '[data-slot="dialog-close"]',
