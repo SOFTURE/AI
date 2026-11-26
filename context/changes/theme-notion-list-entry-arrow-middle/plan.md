@@ -28,5 +28,10 @@ middle. JSDoc, README and CHANGELOG say so.
 - Released as a minor if dependent ranges hold, else a patch.
 
 ## Progress
-- [ ] Phase 1: centre the arrow on a one-line column (TDD)
+- [x] Phase 1: centre the arrow on a one-line column (TDD) (red first: the new unit test failed on the side's
+  `items-start`, and the new `visual/fit.spec.ts` test measured the arrow's middle 2 px (desktop) and 12 px (phone)
+  above the delete button's middle; after: `npx vitest run themes/theme-notion` 1475 tests passed (parity fixture
+  regenerated with `UPDATE_FIXTURES=1`), the ListEntry tests of `visual/fit.spec.ts` 20 passed (#1497's arrow on the
+  status line included), `visual/gallery.spec.ts` passed with the four `gallery.png` baselines updated (the new row;
+  the rest only shifts down), typecheck, ESLint, the language gate and `npm run build` passed) 89748b2
 - [ ] Phase 2: Design System artifact
