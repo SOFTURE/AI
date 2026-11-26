@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.36.0
 
 - `RowActionsMenu` (#1492): a destructive `onSelect` may return a promise (a server action); with `confirm` the
   dialog stays open while it is pending, both buttons disabled and the confirm button showing `confirm.pendingLabel`
