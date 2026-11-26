@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-date-time-picker
 title: "theme-notion: DatePicker and DateTimePicker with the theme's calendar and time field (issue #1509)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 1509
 branch: claude/project-thread-6hz0ds
 created: 2026-11-26
 updated: 2026-11-26
+archived_at: 2026-11-26
 ---
 
 ## Intent
@@ -34,3 +35,11 @@ the app's time zone.
 
 ## Notes
 - frame skipped: the issue names the gap and the proposed component.
+
+## Done
+`DatePicker` and `DateTimePicker`: a day (`YYYY-MM-DD`) or a local date-time (`YYYY-MM-DDTHH:mm`) from the theme's
+calendar: a trigger with the `Input` look and the value in the app's locale, the time zone as a muted suffix, a
+keyboard month grid (WAI-ARIA date picker), `min` / `max`, hours and minutes by `minuteStep`, a hidden input under
+`name`, 44 px touch targets below `md`. Tests (red first), gallery cases, fixture, visual baselines with axe, README,
+CHANGELOG `Unreleased`, the Design System artifact (v103-104). An adopting app drops its styled native date and time
+inputs.
