@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-row-actions-confirm-touch
 title: "theme-notion: RowActionsMenu's confirmation buttons are the touch target on a phone (issue #1502)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1502
 branch: claude/project-thread-1iw7ot
 created: 2026-11-26
 updated: 2026-11-26
+archived_at: 2026-11-26
 ---
 
 ## Intent
@@ -28,3 +29,9 @@ width, while the menu items got `max-md:min-h-touch-target` in #1492.
 
 ## Notes
 - frame skipped: a reported bug with the expected result and the file named in the issue.
+
+## Done
+`RowActionsMenu`: the confirmation dialog's Cancel and confirm buttons are the 44 px touch target below `md`
+(`max-md:h-touch-target`); a desktop keeps the compact 28 px buttons. Test (red first), README, CHANGELOG `Unreleased`,
+the Design System artifact (v97-98); ships in theme-notion 0.37.1. An adopting app's row Delete on a phone confirms
+with the same 44 px buttons as its own dialogs.
