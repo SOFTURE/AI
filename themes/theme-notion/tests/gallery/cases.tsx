@@ -246,6 +246,8 @@ import {
   Code,
   CodeBlock,
   CopyButton,
+  DatePicker,
+  DateTimePicker,
   HelpTooltip,
   Prose,
 } from "../../src/index.js";
@@ -1521,6 +1523,41 @@ const NOTION_CASES: readonly GalleryCase[] = [
           </HelpTooltip>
         </div>
         <Input id="gallery-help-email" type="email" aria-describedby="gallery-help-email-hint" defaultValue="ada@example.test" />
+      </div>
+    ),
+  },
+  {
+    name: "DatePicker",
+    component: "DatePicker",
+    root: '[data-slot="date-picker-trigger"]',
+    render: () => (
+      <div className="flex w-80 flex-col gap-1.5">
+        <Label htmlFor="gallery-date-due">Due</Label>
+        <DatePicker id="gallery-date-due" name="due" defaultValue="2031-03-14" />
+        <Label htmlFor="gallery-date-publish">Publish at</Label>
+        <DateTimePicker id="gallery-date-publish" name="publishAt" defaultValue="2031-03-14T09:30" timeZone="Europe/Warsaw" />
+        <Label htmlFor="gallery-date-remind">Remind at</Label>
+        <DateTimePicker id="gallery-date-remind" name="remindAt" />
+      </div>
+    ),
+  },
+  {
+    name: "DateTimePicker",
+    component: "DateTimePicker",
+    root: '[data-slot="date-picker-calendar"]',
+    isIsolated: true,
+    render: () => (
+      <div className="flex w-72 flex-col gap-1.5">
+        <Label htmlFor="gallery-date-open">Publish at</Label>
+        <DateTimePicker
+          id="gallery-date-open"
+          defaultOpen
+          defaultValue="2031-03-14T09:30"
+          min="2031-03-05T08:00"
+          max="2031-04-20T18:00"
+          minuteStep={15}
+          timeZone="Europe/Warsaw"
+        />
       </div>
     ),
   },

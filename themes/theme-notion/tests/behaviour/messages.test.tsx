@@ -12,6 +12,8 @@ import {
   BreadcrumbEllipsis,
   CommandDialog,
   CopyButton,
+  DatePicker,
+  DateTimePicker,
   DocumentRow,
   DocumentViewer,
   FileInput,
@@ -153,6 +155,30 @@ const CASES: Readonly<Record<string, MessageCase>> = {
       return trigger === rail ? trigger : `${String(trigger)} / ${String(rail)}`;
     },
   },
+  "datePicker.placeholder": {
+    render: (text) => <DatePicker messages={text === undefined ? undefined : { placeholder: text }} />,
+    read: textOf('[data-slot="date-picker-value"]'),
+  },
+  "datePicker.placeholderDateTime": {
+    render: (text) => <DateTimePicker messages={text === undefined ? undefined : { placeholderDateTime: text }} />,
+    read: textOf('[data-slot="date-picker-value"]'),
+  },
+  ...Object.fromEntries(
+    (
+      [
+        ["dialog", () => document.querySelector('[data-slot="popover-content"]')?.getAttribute("aria-label")],
+        ["previousMonth", () => document.querySelectorAll('[data-slot="date-picker-calendar"] button')[0]?.getAttribute("aria-label")],
+        ["nextMonth", () => document.querySelectorAll('[data-slot="date-picker-calendar"] button')[1]?.getAttribute("aria-label")],
+        ["time", () => document.querySelector('[data-slot="date-picker-time"] span')?.textContent],
+        ["hours", () => document.querySelectorAll('[data-slot="date-picker-time"] select')[0]?.getAttribute("aria-label")],
+        ["minutes", () => document.querySelectorAll('[data-slot="date-picker-time"] select')[1]?.getAttribute("aria-label")],
+        ["done", () => [...document.querySelectorAll('[data-slot="date-picker-calendar"] > button')].at(-1)?.textContent],
+      ] as const
+    ).map(([key, read]): [string, MessageCase] => [
+      `datePicker.${key}`,
+      { render: (text) => <DateTimePicker defaultOpen defaultValue="2026-11-26T09:30" messages={text === undefined ? undefined : { [key]: text }} />, read },
+    ]),
+  ),
   "helpTooltip.label": {
     render: (text) => <HelpTooltip {...(text === undefined ? {} : { label: text })}>Hint</HelpTooltip>,
     read: attributeOf('[data-slot="help-tooltip-trigger"]', "aria-label"),

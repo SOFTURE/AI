@@ -6,6 +6,15 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `DatePicker` and `DateTimePicker` (#1509): a day (`YYYY-MM-DD`) or a local date-time (`YYYY-MM-DDTHH:mm`, core's
+  `LocalDateTime`) picked from the theme's calendar instead of the browser's native inputs. A trigger with the `Input`
+  look shows the value in the app's `locale` and the `timeZone` as a muted suffix; the `Popover` holds a month `grid`
+  driven by the keyboard (arrows, Page Up/Down, Shift for years, Home/End, Enter, Escape; WAI-ARIA date picker
+  pattern), days outside `min` / `max` disabled, today marked in `timeZone`; `DateTimePicker` adds hours and minutes
+  (`minuteStep`) and a Done button. `name` adds a hidden input for a server action form; 44 px touch targets below
+  `md`; English copy in `notionMessages.en.datePicker`, replaced through `messages`. An app drops its styled native
+  date and time inputs.
+
 - `ListEntry` and `FoldRow` `sideLayout` (#1508): `"inline"` puts the row's state left of its controls on one line
   (the status, then the inline control and the menu), right-aligned and wrapping when the line runs out of room, in
   place of the state over the controls. `FoldRow` applies it from `md` up (below `md` its column is already one line

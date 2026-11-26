@@ -63,6 +63,13 @@ export { Code, CodeBlock, type CodeBlockProps } from "./notion/Code.js";
 export { CopyButton, type CopyButtonProps } from "./notion/CopyButton.js";
 export { DetailTable, type DetailRow, type DetailTableProps } from "./notion/DetailTable.js";
 export { FilterChip, FilterChipAdd, type FilterChipAddProps, type FilterChipProps } from "./notion/FilterChip.js";
+export {
+  DatePicker,
+  DateTimePicker,
+  type DatePickerMessages,
+  type DatePickerProps,
+  type DateTimePickerProps,
+} from "./notion/DatePicker.js";
 export { HelpTooltip, type HelpTooltipProps } from "./notion/HelpTooltip.js";
 export { FoldRow, type FoldRowAlign, type FoldRowBadge, type FoldRowProps } from "./notion/FoldRow.js";
 export { InstallBar, type InstallBarOffer, type InstallBarProps } from "./notion/InstallBar.js";
