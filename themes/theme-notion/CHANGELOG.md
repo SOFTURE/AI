@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `RowActionsMenu` (#1492): a destructive `onSelect` may return a promise (a server action); with `confirm` the
+  dialog stays open while it is pending, both buttons disabled and the confirm button showing `confirm.pendingLabel`
+  ("Deleting…"), closes when it resolves and stays open when it rejects. `RowMenuAction.opensDialog` leaves focus to
+  the app's own dialog when the menu closes, and `triggerRef` reaches the menu button so that dialog can return focus
+  to it. Below `md` every item is the 44 px touch target; `id` on an action renders as `data-row-action` for browser
+  tests.
+
 ## 0.35.0
 
 - `RowActionsMenu` (#1486): a row's overflow menu. An icon-only "More actions" button (`label` for the app's words)
