@@ -817,24 +817,36 @@ release runs the whole unit suite again minutes after that pull request passed i
 160 runner minutes a week (issue #1373). `SOFTURE/AI/.github/workflows/deploy-tested-tree.yml` tells the release when
 skipping is safe. Its one job, `compare`, reads the API only (nothing is checked out):
 
-1. it resolves `tag` to its commit and lists the pull requests merged into `release-branch` (else the default
-   branch), newest first; the first whose merge commit is in the tag's history is the last one the tag holds (one
-   merged after the tag was cut is passed over);
-2. it compares the tag's tree with the tree of that pull request's newest commit (mode, blob and path of every file),
-   leaving out the folders `ignore-prefixes` names (one per line, each ending in `/`; default `context/`, empty
+1. it resolves `tag` to its commit and reads that commit's own latest check runs: when every line of `check-names`
+   matches a run there and every matching run succeeded (a release gate run on the release branch before the tag was
+   cut), the answer is `"true"` at once; otherwise it goes on to the pull requests;
+2. it lists the pull requests merged into `release-branch` (else the default branch), newest first; those whose merge
+   commit is in the tag's history are the ones the tag holds (one merged after the tag was cut is passed over), at most
+   5;
+3. it compares the tag's tree with the tree of the last pull request's newest commit (mode, blob and path of every
+   file), leaving out the folders `ignore-prefixes` names (one per line, each ending in `/`; default `context/`, empty
    compares everything). This holds for merge, squash and rebase merges alike: a pull request's checks run on its
    head merged into the base of that moment, and code the base had then and the head lacked is on the release branch
    too, so the trees would differ;
-3. it reads that commit's latest check runs: every line of `check-names` (a name or a glob, e.g. `checks / unit *`
+4. it reads that commit's latest check runs: every line of `check-names` (a name or a glob, e.g. `checks / unit *`
    for the shards of `examples/checks.yml`) must match at least one run, and every matching run must have succeeded;
-4. when the newest commit fails step 2 or 3 (a last push that changed only ignored folders, whose suite the pull
+5. when the newest commit fails step 3 or 4 (a last push that changed only ignored folders, whose suite the pull
    request's checks skipped, or a push still red), it tries the pull request's 10 earlier commits, newest first, with
-   the same two steps, and takes the first that passes both. An API failure or a truncated tree stops the search.
+   the same two steps, and takes the first that passes both. An API failure or a truncated tree stops the search;
+6. when the last pull request has no such commit (it changed only ignored folders, an archive or the roadmap state, and
+   ran no named check), it goes on to the older pull requests the tag holds, newest first, with steps 3 to 5, but only
+   while the older pull request's merge commit still has the tag's tree outside the ignored folders: newer code than
+   that pull request means its checks never saw the tag's code. A merge commit that differs or cannot be read stops the
+   walk.
 
-Output `tested` is `"true"` only then. Any doubt answers `"false"` with a notice naming it, and the job stays green: an
-API failure, a tree too large for one answer, a file that differs, a missing, skipped, red or running check, no merged
-pull request. Only invalid inputs fail it. Outputs `pull-request` and `head-sha` name what was compared (`head-sha` is the commit
-that passed on `"true"`, else the newest one).
+Output `tested` is `"true"` only then. Any doubt answers `"false"` with a notice naming the last pull request's reason,
+and the job stays green: an API failure, a tree too large for one answer, a file that differs, a missing, skipped, red
+or running check, no merged pull request. Only invalid inputs fail it. Outputs `pull-request` and `head-sha` name what
+was compared (`head-sha` is the commit that passed on `"true"`, the tag's own commit included, where `pull-request` is
+empty; else the last pull request's newest commit).
+
+A release gate pays off this way: an app that runs its full checks on the release branch's head (`workflow_dispatch`)
+right before it cuts the tag gets the release's unit suite skipped on that very commit.
 
 ```yaml
   tested:
