@@ -25,5 +25,12 @@ box `flex h-lh shrink-0 items-center text-ui`, so it is centred on the first lin
 - Released as a minor (an additive optional prop, no dependent range broken).
 
 ## Progress
-- [ ] Phase 1: `align="start"` (TDD)
-- [ ] Phase 2: Design System artifact
+- [x] Phase 1: `align="start"` (TDD) (two new tests red before the code: the multi-line summary and the fixed title
+  with `align="start"`; after: `npx vitest run themes/theme-notion` 1412 tests passed, `tests/repo` passed;
+  typecheck, ESLint, the language gate and `npm run build` passed; the issue's repro rendered in Chromium at 1280 px:
+  default chevron centre 54 px against the title's 30 px, `align="start"` chevron 158, title 158, status 161) cf4a826
+- [x] Phase 2: Design System artifact (version 95-96: `FoldRow` functions patched in the minified `bundle.js`
+  (`align` on the summary, the slot, the heading, the chevron box and the right column), two rules appended to
+  `bundle.css` as a trailing `@layer utilities{}` (`h-lh`, `md:justify-start`), `align` in `index.d.ts`, a
+  multi-line `align="start"` example on the FoldRow card; rendered in Chromium at 1280 px with no console error:
+  chevron 481, title 481, status 484)
