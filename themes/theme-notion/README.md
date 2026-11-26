@@ -560,7 +560,12 @@ primary action. Every other action goes into `menu`, a `RowActionsMenu` on the s
 button (its name from `label`, English by default) that opens a menu of `actions`, with `destructiveAction` last,
 after a separator, in the danger tone. Give the destructive action a `confirm` (`title`, `description`,
 `confirmLabel`, `cancelLabel`) and it opens an alert dialog first, running only on the destructive confirm; focus goes
-back to the menu button. The menu opens with Enter, Space or ArrowDown, and the arrow keys move between items. A row
+back to the menu button. A destructive `onSelect` that returns a promise (a server action) keeps the dialog open with
+both buttons disabled and `confirm.pendingLabel` ("Deleting…") on the confirm button until it settles: it closes on
+success and stays open on failure, where the app shows its own error. An action that opens the app's own dialog sets
+`opensDialog`, so the menu leaves focus to that dialog; pass `triggerRef` and return focus to the menu button from the
+dialog's `onCloseAutoFocus`. Below `md` every item is the 44 px touch target; an action's `id` renders as
+`data-row-action` for browser tests. The menu opens with Enter, Space or ArrowDown, and the arrow keys move between items. A row
 with a single action keeps it inline and has no menu. The inline control and the menu button never wrap apart, and on
 a phone each is at least the touch target (44 px): pass the switch `size="touch"` (with `className="md:m-0 md:h-4
 md:w-[26px]"` for the plain switch on a desktop), since the row never stretches a switch's track. Each fact is said once: a switch is its own on/off state, so no
@@ -577,12 +582,19 @@ badge or label repeats it; a `ResultBadge` carries its own icon, so no separate 
       label={t.rows.more}
       actions={[
         { label: t.hooks.test, onSelect: test },
-        { label: t.hooks.replaceToken, onSelect: replaceToken },
+        { id: "replace-token", label: t.hooks.replaceToken, onSelect: openReplaceDialog, opensDialog: true },
       ]}
+      triggerRef={menuButton}
       destructiveAction={{
+        id: "delete",
         label: t.hooks.delete,
-        onSelect: remove,
-        confirm: { title: t.hooks.deleteTitle, confirmLabel: t.hooks.delete, cancelLabel: t.common.cancel },
+        onSelect: () => deleteHook(hook.id),
+        confirm: {
+          title: t.hooks.deleteTitle,
+          confirmLabel: t.hooks.delete,
+          pendingLabel: t.hooks.deleting,
+          cancelLabel: t.common.cancel,
+        },
       }}
     />
   }
