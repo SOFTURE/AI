@@ -246,6 +246,7 @@ import {
   Code,
   CodeBlock,
   CopyButton,
+  HelpTooltip,
   Prose,
 } from "../../src/index.js";
 
@@ -1504,6 +1505,22 @@ const NOTION_CASES: readonly GalleryCase[] = [
       <div className="flex w-96 items-center gap-2">
         <CodeBlock className="min-w-0 flex-1">https://app.example.test/api/mcp</CodeBlock>
         <CopyButton value="https://app.example.test/api/mcp" label="Copy URL" copiedLabel="Copied" />
+      </div>
+    ),
+  },
+  {
+    name: "HelpTooltip",
+    component: "HelpTooltip",
+    root: '[data-slot="help-tooltip-trigger"]',
+    render: () => (
+      <div className="flex w-80 flex-col gap-1.5">
+        <div className="flex items-center gap-1">
+          <Label htmlFor="gallery-help-email">Email</Label>
+          <HelpTooltip label="Help for Email" hintId="gallery-help-email-hint">
+            The address we send receipts to. Use your work address.
+          </HelpTooltip>
+        </div>
+        <Input id="gallery-help-email" type="email" aria-describedby="gallery-help-email-hint" defaultValue="ada@example.test" />
       </div>
     ),
   },

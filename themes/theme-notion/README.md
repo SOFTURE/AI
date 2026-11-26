@@ -81,7 +81,7 @@ import { CircleCheck } from "lucide-react";
 **Copy.** The components' built-in texts are accessible names in English (`notionMessages.en`). Pass the app's own
 wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHeader crumbsLabel`,
 `DialogContent closeLabel`, `DialogFooter closeLabel` (the `showCloseButton` button's text), `SheetContent closeLabel`, `SidePanel closeLabel`, `AsidePanelToggle showLabel hideLabel`,
-`AsidePanel widenLabel narrowLabel closeLabel`, `AsidePanelSidebarOpener label`, `Steps stateLabels`, `CopyButton label copiedLabel`,
+`AsidePanel widenLabel narrowLabel closeLabel`, `AsidePanelSidebarOpener label`, `Steps stateLabels`, `CopyButton label copiedLabel`, `HelpTooltip label`,
 `Sidebar mobileTitle mobileDescription`, `SidebarTrigger label`, `SidebarRail label`, `Spinner aria-label`,
 `CommandDialog title description` (`title` also names its search field), `Command label` (the search field's
 name outside a `CommandDialog`; without it the field has none), `SortableList instructions announcements`, `SortableHandle label`.
@@ -154,6 +154,7 @@ and count, the shown tab in the address; `Tabs` keeps it in client state), `Mark
 list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filter pills, below), `Steps` (numbered
 stages with a state, below), `Timeline` (dated entries on a vertical rail, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below),
 `CopyButton` (one value to the clipboard, with a moment of "Copied", below),
+`HelpTooltip` (a field's "?" hint that opens on hover, focus, click and tap, below),
 `Prose` (the text styles of a long read the app does not draw itself, such as Markdown rendered to HTML, below),
 `SortableList`, `SortableItem`, `SortableHandle` and `SortableActivator` (rows reordered by dragging, below),
 `List`, `ListItem` and `ListRow` (a list of rows, compact or roomy by the page's density, below),
@@ -715,6 +716,23 @@ app after a copy. A client component. `data-slot="copy-button"`, `data-copied` w
   <CodeBlock className="min-w-0 flex-1">{url}</CodeBlock>
   <CopyButton value={url} label="Copy URL" copiedLabel="Copied" />
 </div>
+```
+
+**`HelpTooltip`.** A field's "?" hint: a ghost icon button (Lucide's circle-help) whose tooltip opens on hover, focus,
+click and tap, since a phone has no hover. A click opens rather than toggles, so a press during which hover opened the
+tooltip still ends with it open (a plain `Tooltip` toggled on click closes again: Radix's trigger closes on every
+click). Escape, a press outside, blur and the pointer leaving the button and the tooltip close it. Below `md` the
+button is the 44 px touch target. The hint is also rendered hidden under `hintId` (generated when not given), so the
+field points to it with `aria-describedby`. `label` names the button ("Help" by default; name the field where it
+helps), `side` and `align` place the tooltip, `onOpenChange` tells the app. It brings its own `TooltipProvider`. A
+client component. `data-slot="help-tooltip-trigger"` on the button, `data-slot="help-tooltip-hint"` on the hidden hint.
+
+```tsx
+<div className="flex items-center gap-1">
+  <Label htmlFor="email">Email</Label>
+  <HelpTooltip label="Help for Email" hintId="email-hint">The address we send receipts to.</HelpTooltip>
+</div>
+<Input id="email" type="email" aria-describedby="email-hint" />
 ```
 
 **`Prose`.** A long read whose elements the app does not draw itself, such as Markdown rendered to HTML (a help page,

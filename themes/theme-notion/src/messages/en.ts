@@ -16,6 +16,7 @@ export const en = {
   dialog: { close: "Close" },
   fileInput: { choose: "Choose a file", chooseMany: "Choose files", none: "No file chosen", count: "{count} files" },
   filterChip: { add: "Add filter" },
+  helpTooltip: { label: "Help" },
   sheet: { close: "Close" },
   sidePanel: { close: "Close" },
   sidebar: { mobileTitle: "Sidebar", mobileDescription: "Displays the mobile sidebar.", toggle: "Toggle Sidebar" },
