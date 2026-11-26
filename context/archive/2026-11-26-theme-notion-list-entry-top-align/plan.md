@@ -23,5 +23,12 @@ line. JSDoc, README and CHANGELOG say that both sides align to the top.
 - Released as a minor together with #1495 (a fix in layout; no dependent range broken).
 
 ## Progress
-- [ ] Phase 1: top alignment (TDD)
-- [ ] Phase 2: Design System artifact
+- [x] Phase 1: top alignment (TDD) (red first: the new unit test and the updated root class test failed, and the
+  new `visual/fit.spec.ts` test measured the badge 7 px below the title line's middle at both desktop viewports;
+  after: `npx vitest run themes/theme-notion` 1410 tests passed (the `notion-slots.json` parity fixture regenerated
+  with `UPDATE_FIXTURES=1`), the ListEntry tests of `visual/fit.spec.ts` 16 passed, `visual/gallery.spec.ts` 148
+  passed, typecheck, ESLint, the language gate and `npm run build` passed) e4b602e
+- [x] Phase 2: Design System artifact (version 93-94: the `ListEntry` IIFE in `bundle.js` patched (root and side
+  `items-start`, arrow `h-5 items-center`; both classes already in `bundle.css`), the List card README notes the top
+  alignment; rendered in Chromium at 1280 px with a three-line identity: the title line's, the badge's and the
+  arrow's middles all at 14 px, no console error)

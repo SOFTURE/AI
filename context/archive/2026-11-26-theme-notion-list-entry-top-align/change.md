@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-list-entry-top-align
 title: "theme-notion: ListEntry keeps its state on the title's line with a multi-line identity (issue #1497)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1497
 branch: claude/project-thread-n42ozb
 created: 2026-11-26
 updated: 2026-11-26
+archived_at: 2026-11-26
 ---
 
 ## Intent
@@ -30,3 +31,9 @@ against the identity. The component's own description says the state sits at the
 
 ## Notes
 - frame skipped: a reported bug with the expected layout and a proposed fix in the issue.
+
+## Done
+`ListEntry`: the identity and the right column align to the top, so with a multi-line identity the state stands on
+the title's line and the controls under it; the arrow of a linked row is centred on the title's line. Unit and browser
+geometry tests (red first), parity fixture, README, CHANGELOG `Unreleased`, the Design System artifact (v93-94); ships
+in the next theme-notion release. An adopting app's layout checks (badge level with the title) pass without overrides.
