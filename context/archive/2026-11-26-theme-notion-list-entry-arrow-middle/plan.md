@@ -34,4 +34,8 @@ middle. JSDoc, README and CHANGELOG say so.
   regenerated with `UPDATE_FIXTURES=1`), the ListEntry tests of `visual/fit.spec.ts` 20 passed (#1497's arrow on the
   status line included), `visual/gallery.spec.ts` passed with the four `gallery.png` baselines updated (the new row;
   the rest only shifts down), typecheck, ESLint, the language gate and `npm run build` passed) 89748b2
-- [ ] Phase 2: Design System artifact
+- [x] Phase 2: Design System artifact (version 109-110: the `ListEntry` IIFE in `bundle.js` patched (the side is
+  `items-start` with a status stacked over controls, else `items-center has-[[data-row-wide]]:items-start`), one
+  rule added to `bundle.css` (`has-[[data-row-wide]]:items-start`), the List card README and a new linked row with a
+  delete button in its preview; rendered in Chromium at 1280 px: the arrow's and the button's middles both at 32 px,
+  the stacked row's arrow on the title line (80 px), no console error)

@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-list-entry-arrow-middle
 title: "theme-notion: ListEntry's arrow shares the middle of the controls beside it (issue #1520)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1520
 branch: claude/project-thread-wypkxq
 created: 2026-11-26
 updated: 2026-11-26
+archived_at: 2026-11-26
 ---
 
 ## Intent
@@ -32,3 +33,10 @@ arrow's middle stands 2 (desktop) to 12 px (phone) above the control's middle.
 
 ## Notes
 - frame skipped: a reported bug with the expected layout and a proposed fix in the issue.
+
+## Done
+`ListEntry`: in a linked row whose right column is one line (controls with no status, a status alone, or
+`sideLayout="inline"`), the arrow shares the column's vertical middle, so an icon button beside it stands level with
+the arrow on a desktop and on a phone; a status stacked over controls keeps the arrow on the title's line (#1497).
+Unit and browser geometry tests (red first), a gallery row, parity fixture, gallery baselines, README, CHANGELOG
+`Unreleased`, the Design System artifact (v109-110); ships in the next theme-notion release.
