@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `ListEntry` (#1497): the identity and the right column align to the top (`items-start`), so with a multi-line
+  identity (a title with detail lines, chips, a time) the state stands on the title's line and the controls under it,
+  instead of floating in the middle of the row; the arrow of a linked row sits on the title's line. Single-line rows
+  look as before; on a phone the column still wraps under the identity.
+
 ## 0.36.0
 
 - `RowActionsMenu` (#1492): a destructive `onSelect` may return a promise (a server action); with `confirm` the

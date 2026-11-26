@@ -390,6 +390,38 @@ test("a list entry keeps its state over its controls at the right and wraps them
   await expect.poll(() => new URL(page.url()).hash).toBe("#deploy-42");
 });
 
+// #1497: with a multi-line identity the state stands on the title's first line, not in the middle of the row; the
+// controls follow under it and the arrow stays on the state's line. On a phone the column still wraps under the identity.
+test("a list entry with a multi-line identity keeps its state and arrow on the title's line", async ({ page }, testInfo) => {
+  await page.goto(PAGE_URL);
+  await page.evaluate(() => document.fonts.ready);
+  const entry = page.locator('[data-gallery-list-entry] [data-slot="list-entry"]').first();
+  const measures = await entry.evaluate((element) => {
+    const find = (slot: string): DOMRect => {
+      const target = element.querySelector(`[data-slot="${slot}"]`);
+      if (target === null) throw new Error(`no ${slot} in the list entry`);
+      return target.getBoundingClientRect();
+    };
+    const title = element.querySelector('[data-slot="list-entry-title"]');
+    if (title === null) throw new Error("no title in the list entry");
+    const lineHeight = Number.parseFloat(getComputedStyle(title).lineHeight);
+    const titleBox = title.getBoundingClientRect();
+    const middle = (box: DOMRect): number => box.top + box.height / 2;
+    return {
+      titleLineMiddle: titleBox.top + lineHeight / 2,
+      badgeMiddle: middle(find("result-badge")),
+      arrowMiddle: middle(find("list-entry-arrow")),
+      identityHeight: find("list-entry-identity").height,
+      lineHeight,
+    };
+  });
+
+  expect(measures.identityHeight).toBeGreaterThan(measures.lineHeight * 2); // the title and two detail lines
+  if (testInfo.project.name.startsWith("phone")) return; // the column wraps under the identity (checked above)
+  expect(Math.abs(measures.badgeMiddle - measures.titleLineMiddle)).toBeLessThanOrEqual(2);
+  expect(Math.abs(measures.arrowMiddle - measures.titleLineMiddle)).toBeLessThanOrEqual(2);
+});
+
 test("a data-row-wide control takes the full row width under the identity, starting on the left", async ({ page }) => {
   await page.goto(PAGE_URL);
   await page.evaluate(() => document.fonts.ready);
