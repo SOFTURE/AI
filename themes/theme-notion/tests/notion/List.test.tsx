@@ -212,12 +212,22 @@ describe("ListEntry (#1481)", () => {
     const entry = readOpening(html, "list-entry");
 
     expect(entry.startsWith("<div ")).toBe(true);
-    expect(readClasses(entry)).toEqual(expect.arrayContaining(["relative", "flex", "flex-wrap", "items-center", "hover:bg-accent", "py-(--list-row-y)"]));
+    expect(readClasses(entry)).toEqual(expect.arrayContaining(["relative", "flex", "flex-wrap", "items-start", "hover:bg-accent", "py-(--list-row-y)"]));
     expect(readClasses(readOpening(html, "list-entry-identity"))).toEqual(expect.arrayContaining(["min-w-0", "flex-1", "max-md:basis-full"]));
     expect(html.indexOf('data-slot="list-entry-title"')).toBeLessThan(html.indexOf('data-slot="list-entry-details"'));
     expect(html.indexOf('data-slot="list-entry-status"')).toBeLessThan(html.indexOf('data-slot="list-entry-actions"'));
     expect(readClasses(readOpening(html, "list-entry-column"))).toEqual(expect.arrayContaining(["flex-col", "items-end"]));
     expect(readClasses(readOpening(html, "list-entry-side"))).toEqual(expect.arrayContaining(["ml-auto", "relative", "z-10"]));
+  });
+
+  it("aligns the identity and the right column to the top, so the state stands on the title's line (#1497)", () => {
+    const html = renderEntry({ href: "/deploys/42", details: [<span key="a">main</span>, <span key="b">4 min ago</span>] });
+
+    expect(readClasses(readOpening(html, "list-entry"))).toContain("items-start");
+    expect(readClasses(readOpening(html, "list-entry"))).not.toContain("items-center");
+    expect(readClasses(readOpening(html, "list-entry-side"))).toContain("items-start");
+    expect(readClasses(readOpening(html, "list-entry-side"))).not.toContain("items-center");
+    expect(readClasses(readOpening(html, "list-entry-arrow"))).toEqual(expect.arrayContaining(["h-5", "items-center"]));
   });
 
   it("draws only the slots it is given", () => {

@@ -532,9 +532,11 @@ renders with other components, `LIST_CLASSES` holds the same classes (`list`, `t
 
 **`ListEntry`: a row with a right column.** The most common row of an admin list: what the row is on the left
 (`title`, in the medium weight, and `details`, the lines under it in the muted colour) and a right column with the
-row's state on top (`status`, badges that wrap right-aligned) and its controls under it (`actions`). With `href` the
+row's state on top (`status`, badges that wrap right-aligned) and its controls under it (`actions`). Both sides align
+to the top: the state stands on the title's line however many detail lines the identity has. With `href` the
 title is a link stretched over the whole row, so the row is one box lit on hover with one focus ring, and a muted arrow
-sits beside the column; the arrow and the column are one group, so the arrow never wraps onto a line of its own. The
+sits beside the column on the title's line; the arrow and the column are one group, so the arrow never wraps onto a
+line of its own. The
 column stays above the link: its controls are their own targets, and a click on the gap between them or on the arrow
 still opens the row. Pass `linkComponent` for a router's link (it takes `href`, `className` and `children`). On a
 phone (below `md`) the column wraps under the identity, right-aligned, and every control is at least the touch target

@@ -10,6 +10,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   (in a box one line of `ui` text high, `data-slot="fold-row-chevron"`) and the right column is top-aligned, the
   status on the first line and the actions under it. The default (`center`) keeps the centred bar. An app drops its
   local `[data-slot=fold-row-summary]:items-start` and chevron margin overrides.
+- `ListEntry` (#1497): the identity and the right column align to the top (`items-start`), so with a multi-line
+  identity (a title with detail lines, chips, a time) the state stands on the title's line and the controls under it,
+  instead of floating in the middle of the row; the arrow of a linked row sits on the title's line. Single-line rows
+  look as before; on a phone the column still wraps under the identity.
 
 ## 0.36.0
 
