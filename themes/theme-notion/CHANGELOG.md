@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.41.0
 
 - `DialogContent size="form"` and `DialogFooter sticky` (#1515): a create or edit form in a dialog is `max-w-2xl`
   (672 px) from `md`, `max-w-lg` from `sm`, full width inside the 1 rem gutter on a phone, its height by content up
