@@ -12,7 +12,6 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   the app's own dialog when the menu closes, and `triggerRef` reaches the menu button so that dialog can return focus
   to it. Below `md` every item is the 44 px touch target; `id` on an action renders as `data-row-action` for browser
   tests.
-
 - `ResultBadge` (#1493): every other `span` prop (`data-*`, `id`, ARIA) reaches the badge, so an app marks a badge
   with what it shows (`data-read-status="ok"`) without wrapping it. The theme's `data-slot`, `data-tone`,
   `data-color` and `data-spinning` stay the theme's.
