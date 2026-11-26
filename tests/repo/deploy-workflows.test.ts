@@ -2913,6 +2913,109 @@ describe("deploy-tested-tree.yml (issue #1373)", () => {
     });
   });
 
+  describe("the tag's own commit", () => {
+    const TAG_RUNS = `repos/acme/app/commits/${TAG_SHA}/check-runs?filter=latest&per_page=100`;
+
+    it("answers true, naming the commit, when the named checks passed on it (a release gate), whatever the pull request ran", () => {
+      const api = getApi();
+      api[TAG_RUNS] = { check_runs: RUNS };
+      api[`repos/acme/app/commits/${HEAD_SHA}/check-runs?filter=latest&per_page=100`] = { check_runs: [run("unit (1/2)", "skipped")] };
+      // No pull request needs reading: the answer comes from the tag's commit alone.
+      delete api["repos/acme/app/pulls?state=closed&base=main&sort=updated&direction=desc&per_page=30"];
+      const result = compare(api);
+      expect(result.status, result.stdout).toBe(0);
+      expect(result.outputs).toEqual({ tested: "true", "pull-request": "", "head-sha": TAG_SHA });
+      expect(result.stdout).toContain(`the named checks passed on the commit of v2026.11.18 (${TAG_SHA}) itself.`);
+    });
+
+    it.each([
+      ["a red check", [run("unit (1/2)", "failure"), run("unit (2/2)"), run("static")]],
+      ["a skipped check", [run("unit (1/2)"), run("unit (2/2)"), run("static", "skipped")]],
+      ["a missing check", [run("unit (1/2)"), run("unit (2/2)")]],
+    ])("goes on to the pull request when the tag's commit has %s", (_case, runs) => {
+      const api = getApi();
+      api[TAG_RUNS] = { check_runs: runs };
+      expect(compare(api).outputs).toEqual({ tested: "true", "pull-request": "7", "head-sha": HEAD_SHA });
+      api[`repos/acme/app/commits/${HEAD_SHA}/check-runs?filter=latest&per_page=100`] = { check_runs: [run("unit (1/2)", "skipped")] };
+      const result = compare(api);
+      expect(result.outputs).toEqual({ tested: "false", "pull-request": "7", "head-sha": HEAD_SHA });
+      expect(result.stdout).toContain('::notice::The unit suite runs: the check run "unit (1/2)" of pull request #7 is completed (skipped), not a success.');
+    });
+  });
+
+  describe("an older pull request", () => {
+    const ARCHIVE_MERGE_SHA = "9".repeat(40);
+    const ARCHIVE_HEAD_SHA = "8".repeat(40);
+    const OLDEST_MERGE_SHA = "7".repeat(40);
+    const OLDEST_HEAD_SHA = "6".repeat(40);
+    const MERGED = "repos/acme/app/pulls?state=closed&base=main&sort=updated&direction=desc&per_page=30";
+    const ARCHIVE_TREE = tree([...CODE, { path: "context/archive/plan.md", sha: "5".repeat(40) }]);
+
+    /** The tag ends with pull request #8, which only archived the change of #7 under context/ and ran no named check. */
+    function getArchiveApi(): Record<string, unknown> {
+      const api = getApi();
+      api[MERGED] = [
+        { number: 8, merged_at: "2026-11-18T11:00:00Z", merge_commit_sha: ARCHIVE_MERGE_SHA, head: { sha: ARCHIVE_HEAD_SHA } },
+        { number: 7, merged_at: "2026-11-18T10:00:00Z", merge_commit_sha: MERGE_SHA, head: { sha: HEAD_SHA } },
+        { number: 6, merged_at: "2026-11-18T09:00:00Z", merge_commit_sha: OLDEST_MERGE_SHA, head: { sha: OLDEST_HEAD_SHA } },
+      ];
+      api[`repos/acme/app/compare/${ARCHIVE_MERGE_SHA}...${TAG_SHA}`] = { status: "identical" };
+      api[`repos/acme/app/compare/${OLDEST_MERGE_SHA}...${TAG_SHA}`] = { status: "ahead" };
+      api[`repos/acme/app/git/trees/${ARCHIVE_HEAD_SHA}?recursive=1`] = ARCHIVE_TREE;
+      api[`repos/acme/app/git/trees/${ARCHIVE_MERGE_SHA}?recursive=1`] = ARCHIVE_TREE;
+      api[`repos/acme/app/commits/${ARCHIVE_HEAD_SHA}/check-runs?filter=latest&per_page=100`] = { check_runs: [run("static")] };
+      api["repos/acme/app/pulls/8/commits?per_page=100"] = [{ sha: ARCHIVE_HEAD_SHA }];
+      api[`repos/acme/app/git/trees/${MERGE_SHA}?recursive=1`] = tree([...CODE, { path: "context/changes/plan.md", sha: "6".repeat(40) }]);
+      return api;
+    }
+
+    it("answers true for the newest older pull request that passed, when every newer one changed only ignored folders", () => {
+      const result = compare(getArchiveApi());
+      expect(result.status, result.stdout).toBe(0);
+      expect(result.outputs).toEqual({ tested: "true", "pull-request": "7", "head-sha": HEAD_SHA });
+      expect(result.stdout).toContain("v2026.11.18 has the tree of pull request #7");
+    });
+
+    it("stops, with the last pull request's reason, at an older merge commit whose code differs from the tag", () => {
+      const api = getArchiveApi();
+      api[`repos/acme/app/git/trees/${MERGE_SHA}?recursive=1`] = tree(CODE.filter((entry) => entry.path !== "src/index.ts"));
+      const result = compare(api);
+      expect(result.outputs).toEqual({ tested: "false", "pull-request": "8", "head-sha": ARCHIVE_HEAD_SHA });
+      expect(result.stdout).toContain(`::notice::The unit suite runs: pull request #8 (${ARCHIVE_HEAD_SHA}) has no check run named "unit (*)".`);
+    });
+
+    it("stops at an older merge commit whose tree cannot be read", () => {
+      const api = getArchiveApi();
+      delete api[`repos/acme/app/git/trees/${MERGE_SHA}?recursive=1`];
+      expect(compare(api).outputs).toEqual({ tested: "false", "pull-request": "8", "head-sha": ARCHIVE_HEAD_SHA });
+    });
+
+    it("keeps the pull requests it found when the history of an older one cannot be compared", () => {
+      const api = getArchiveApi();
+      delete api[`repos/acme/app/compare/${OLDEST_MERGE_SHA}...${TAG_SHA}`];
+      expect(compare(api).outputs).toEqual({ tested: "true", "pull-request": "7", "head-sha": HEAD_SHA });
+    });
+
+    it("reads at most 5 pull requests of the tag's history", () => {
+      const api = getArchiveApi();
+      const archives = Array.from({ length: 4 }, (_, index) => ({ number: 20 + index, merge: `1${index}`.repeat(20), head: `2${index}`.repeat(20) }));
+      api[MERGED] = [
+        ...archives.map((entry, index) => ({ number: entry.number, merged_at: `2026-11-18T2${index}:00:00Z`, merge_commit_sha: entry.merge, head: { sha: entry.head } })),
+        ...(api[MERGED] as unknown[]),
+      ];
+      for (const entry of archives) {
+        api[`repos/acme/app/compare/${entry.merge}...${TAG_SHA}`] = { status: "ahead" };
+        api[`repos/acme/app/git/trees/${entry.merge}?recursive=1`] = ARCHIVE_TREE;
+        api[`repos/acme/app/git/trees/${entry.head}?recursive=1`] = ARCHIVE_TREE;
+        api[`repos/acme/app/commits/${entry.head}/check-runs?filter=latest&per_page=100`] = { check_runs: [run("static")] };
+        api[`repos/acme/app/pulls/${entry.number}/commits?per_page=100`] = [{ sha: entry.head }];
+      }
+      expect(compare(api).outputs).toMatchObject({ tested: "false", "pull-request": "23" });
+      api[MERGED] = (api[MERGED] as unknown[]).slice(1);
+      expect(compare(api).outputs).toEqual({ tested: "true", "pull-request": "7", "head-sha": HEAD_SHA });
+    });
+  });
+
   it("answers false when the event names no default branch", () => {
     const result = compare(getApi(), { DEFAULT_BRANCH: "" });
     expect(result.outputs.tested).toBe("false");

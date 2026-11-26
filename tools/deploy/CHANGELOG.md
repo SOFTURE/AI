@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- **`deploy-tested-tree.yml` also reads the tag's own commit and older pull requests.** It answers `tested: "true"`
+  when the named checks succeeded on the tag's commit itself (a release gate dispatched on the release branch before
+  the tag was cut), and when the last merged pull request changed only ignored folders and ran no named check, it
+  walks back to older merged pull requests (at most 5) while their merge commit still has the tag's tree outside the
+  ignored folders. In an adopting app the skip had answered `false` on every release: the last pull request was an
+  archive or a package bump without the suite, and a release gate's green run on the very same commit was not read.
+  Output `head-sha` is the tag's commit when that answered, with an empty `pull-request`.
+  - Migrate: nothing; move the `uses:` pin to this release's commit.
+
 ## 0.7.9
 
 - **`publicPaths` in `deploy.json`; verify checks only public paths** (#1435). `init` writes `publicPaths` from the
