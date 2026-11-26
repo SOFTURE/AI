@@ -1,5 +1,5 @@
 import { Circle, CircleCheck, CircleMinus, CircleX, LoaderCircle, TriangleAlert, type LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 import { cn } from "../lib/utils.js";
 import { Badge } from "../ui/badge.js";
@@ -16,7 +16,12 @@ export const RESULT_BADGE_ICONS: Readonly<Record<Tone, LucideIcon>> = {
   muted: CircleMinus,
 };
 
-export interface ResultBadgeProps {
+/**
+ * The badge's remaining `span` props (`data-*`, `id`, ARIA, handlers) reach the element, so an app can mark a badge with
+ * what it shows (`data-read-status="ok"`). The theme's own `data-slot`, `data-tone`, `data-color` and `data-spinning`
+ * always win, and the look (`variant`, `color`) is the theme's.
+ */
+export interface ResultBadgeProps extends Omit<ComponentProps<"span">, "color" | "children" | "title" | "className"> {
   /** What the result means; the theme owns its colour (`TONE_COLORS`), so one result reads alike in every list. */
   readonly tone: Tone;
   /** The app's own icon in place of the tone's default (a spinning run defaults to a loader). */
@@ -37,10 +42,11 @@ function getPlainText(children: ReactNode): string | undefined {
 
 // A result (passed, failed, skipped, running): a filled tag in its tone's colour, with an icon and a word. The filled
 // counterpart of `Status`, for a list whose rows each end in a result.
-export function ResultBadge({ tone, icon, isSpinning = false, children, title, className }: ResultBadgeProps) {
+export function ResultBadge({ tone, icon, isSpinning = false, children, title, className, ...attributes }: ResultBadgeProps) {
   const Icon = icon ?? (isSpinning ? LoaderCircle : RESULT_BADGE_ICONS[tone]);
   return (
     <Badge
+      {...attributes}
       variant="tag"
       color={TONE_COLORS[tone] ?? "default"}
       data-slot="result-badge"

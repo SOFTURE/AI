@@ -88,4 +88,32 @@ describe("ResultBadge (#1481)", () => {
     expect(resting).not.toContain("animate-spin");
     expect(readBadge(resting)).not.toContain("data-spinning");
   });
+
+  it("passes the app's own data attributes and id to the badge (#1493)", () => {
+    const badge = readBadge(
+      renderToStaticMarkup(
+        <ResultBadge tone="success" data-read-status="ok" id="read-status">
+          Read
+        </ResultBadge>,
+      ),
+    );
+
+    expect(badge).toContain('data-read-status="ok"');
+    expect(badge).toContain('id="read-status"');
+  });
+
+  it("keeps the theme's own slot, tone, colour and spinning state over the app's (#1493)", () => {
+    const html = renderToStaticMarkup(
+      <ResultBadge tone="success" data-slot="app-badge" data-tone="danger" data-color="red" data-spinning="true">
+        Passed
+      </ResultBadge>,
+    );
+    const badge = readBadge(html);
+
+    expect(badge).toContain('data-slot="result-badge"');
+    expect(badge).toContain('data-tone="success"');
+    expect(badge).toContain('data-color="green"');
+    expect(badge).not.toContain("data-spinning");
+    expect(html).not.toContain("app-badge");
+  });
 });
