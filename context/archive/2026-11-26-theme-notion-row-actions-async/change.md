@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-row-actions-async
 title: "theme-notion: RowActionsMenu runs an async destructive action, opens an app dialog and meets the touch target (issue #1492)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1492
 branch: claude/project-thread-fax32f
 created: 2026-11-26
 updated: 2026-11-26
+archived_at: 2026-11-26
 ---
 
 ## Intent
@@ -34,3 +35,10 @@ menu returns focus to its internal trigger on close, and its content renders at 
 
 ## Notes
 - frame skipped: a reported gap with a proposed shape and acceptance criteria in the issue.
+
+## Done
+`RowActionsMenu`: a destructive `onSelect` that returns a promise keeps the confirmation open, both buttons disabled
+and `confirm.pendingLabel` on the confirm button until it settles (closes on resolve, stays open on rejection);
+`opensDialog` leaves focus to the app's own dialog; `triggerRef` reaches the menu button; items are 44 px below `md`
+and carry `data-row-action`. Tests (red first), README, CHANGELOG `Unreleased`, the Design System artifact (v91-92);
+ships in the next theme-notion release. An adopting app drops its local row overflow menu.

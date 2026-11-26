@@ -29,5 +29,12 @@ content's `onCloseAutoFocus` prevent the focus return. `triggerRef` is merged wi
 - Released as a minor (additive props, no dependent range broken).
 
 ## Progress
-- [ ] Phase 1
-- [ ] Phase 2
+- [x] Phase 1: async confirm, opensDialog, triggerRef, touch items and hooks (five new tests red before the code: the
+  pending dialog, the rejection, the focus left to an app dialog, `triggerRef`, `data-row-action` and the touch class;
+  after: `npx vitest run themes/theme-notion` 1407 tests passed; typecheck, ESLint, the language gate and `npm run
+  build` passed) 8743053
+- [x] Phase 2: Design System artifact (version 91-92: the `RowActionsMenu` IIFE in `bundle.js` replaced, one rule
+  `max-md:min-h-touch-target` appended to `bundle.css` as a trailing `@layer utilities{}`, types in `index.d.ts`,
+  merged on top of the parallel #1493 ResultBadge publish; rendered in Chromium at 390 px with no console error: the
+  delete item has `min-height: 44px` and `data-row-action="delete"`, the confirm button shows "Deleting…" with
+  `aria-busy` while the promise is pending, and the dialog closes when it resolves)
