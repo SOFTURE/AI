@@ -40,4 +40,11 @@ The upstream deltas, the parity fixture, README (dialog line) and CHANGELOG `## 
   in a row; phone 390 x 844 the dialog is 358 x 812, both buttons 310 px (full width inside `p-6`), the primary on
   top (748 vs 784), the footer's bottom equals the dialog's (828); typecheck, ESLint, the language gate and
   `npm run build` passed)
-- [ ] Phase 2: Design System artifact
+- [x] Phase 2: Design System artifact (version 107-108: `DialogContent` gains the `form` class string and
+  `DialogFooter` (`ZG`) the `sticky` prop with `data-sticky` in the minified `bundle.js`; 4 rules (`-bottom-6`, `-mx-6`,
+  `-mb-6`, `md:max-w-2xl` with a `42rem` fallback, since the bundle defines no `--container-2xl`) appended to
+  `bundle.css` as a trailing `@layer utilities{}` (diffed with postcss against the gallery's compiled css); `form` and
+  `sticky` in `index.d.ts`; the Dialog card describes both, a new DialogForm card shows the form dialog; rendered in
+  Chromium (headless shell 1243) at 1280 x 420 light and 390 x 420 dark: dialog 672 / 358 px wide, capped at 388 px
+  and scrolling, the footer `position: sticky` with a 1 px top border, its bottom equal to the dialog's at scroll top
+  and end, phone buttons 310 px with the primary on top, no page error)
