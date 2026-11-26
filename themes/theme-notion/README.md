@@ -236,7 +236,10 @@ delete button, a menu), beside the `<details>` rather than inside its `<summary>
 many lines it wraps to, and the summary and the column light as one box when the row is open or hovered. Below `md`
 the column falls under the summary and each action is at least 44 px. With a column the row is a grid
 (`data-slot="fold-row-with-actions"`, which carries the bottom border) and the opened content sits under the whole bar
-as the details' sibling, shown while it is open. `isOpenInitially` renders the row open (`<details open>`), for the row the
+as the details' sibling, shown while it is open. By default the chevron and the column are centred on the bar;
+`align="start"` lines both up with the summary's first line instead, for a summary of several lines (a title, a stage,
+an outcome): the chevron sits in a box one line of `ui` text high (`data-slot="fold-row-chevron"`), and the column is
+top-aligned, the status on the first line and the actions under it. `isOpenInitially` renders the row open (`<details open>`), for the row the
 address points at; only the first render reads it, and the reader can still fold the row.
 
 ```tsx
@@ -245,6 +248,7 @@ address points at; only the first render reads it, and the reader can still fold
   <InvoiceLines />
 </FoldRow>
 <FoldRow title="clip.mp4" badges={[]} status={<Status color="green">Paid</Status>} actions={<DeleteButton />} />
+<FoldRow align="start" size="touch" summary={<ItemLines />} status={<Status color="blue">In progress</Status>} actions={<OpenButton />} />
 ```
 
 **`FilterChip`.** The filters above a list or a table, drawn the way a Notion database view draws them: a 24 px pill

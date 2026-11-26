@@ -4,8 +4,7 @@
 All in `src/notion/FoldRow.tsx`. `FoldRowProps.align?: "center" | "start"` (default `center`). With `start`: the
 summary, the summary slot and the fixed heading use `items-start`; the chevron is wrapped in a `fold-row-chevron`
 box `flex h-lh shrink-0 items-center text-ui`, so it is centred on the first line; the right column uses
-`md:justify-start` instead of `md:justify-center`. The row carries `data-align` on `fold-row` for tests and app hooks.
-With `center` every class stays as in 0.36.0.
+`md:justify-start` instead of `md:justify-center`. With `center` every class and the markup stay as in 0.36.0 (no chevron box).
 
 ## Phases
 ### Phase 1: `align="start"` (TDD)
