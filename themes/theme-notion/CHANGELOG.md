@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.37.0
 
 - `FoldRow` (#1495): `align="start"` lines the bar up with the summary's first line: the chevron sits on that line
   (in a box one line of `ui` text high, `data-slot="fold-row-chevron"`) and the right column is top-aligned, the
