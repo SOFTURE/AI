@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.41.1
 
 - `ListEntry` (#1520): in a linked row whose right column is one line (controls with no status, a status alone, or
   `sideLayout="inline"`), the arrow shares the column's vertical middle, so an icon button beside it (24 px on a
