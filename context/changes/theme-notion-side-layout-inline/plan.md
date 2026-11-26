@@ -36,5 +36,11 @@ JSDoc, README and CHANGELOG describe the rule: the state left of the controls, o
 - Release: a minor (a new optional prop, no dependent range broken), with #1509 if it lands in the same window.
 
 ## Progress
-- [ ] Phase 1: inline side layout (TDD)
+- [x] Phase 1: inline side layout (TDD) (red first: the 6 new unit tests failed, and the new `visual/fit.spec.ts`
+  tests failed with the stacked column: the entry's badge ended at 528 px, past its control's left edge at 504 px
+  (desktop and phone), and the fold row's status ended at 358 px, past its action at 314 px (desktop); after:
+  `npx vitest run themes/theme-notion` 1435 passed (parity fixture regenerated with `UPDATE_FIXTURES=1`, only the two
+  new cases added), `visual/fit.spec.ts` ListEntry/FoldRow tests 24 passed on the four projects, `visual/gallery.spec.ts`
+  148 passed with only `gallery.png` re-baselined (the new cases), typecheck, ESLint, the language gate and
+  `npm run build` passed) 0f8de9c
 - [ ] Phase 2: Design System artifact
