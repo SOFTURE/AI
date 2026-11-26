@@ -542,7 +542,8 @@ renders with other components, `LIST_CLASSES` holds the same classes (`list`, `t
 row's state on top (`status`, badges that wrap right-aligned) and its controls under it (`actions`). Both sides align
 to the top: the state stands on the title's line however many detail lines the identity has. With `href` the
 title is a link stretched over the whole row, so the row is one box lit on hover with one focus ring, and a muted arrow
-sits beside the column on the title's line; the arrow and the column are one group, so the arrow never wraps onto a
+sits beside the column: on the state's line when the state stands over controls, otherwise level with the column's
+middle, so an icon button beside it shares its line; the arrow and the column are one group, so the arrow never wraps onto a
 line of its own. The
 column stays above the link: its controls are their own targets, and a click on the gap between them or on the arrow
 still opens the row. Pass `linkComponent` for a router's link (it takes `href`, `className` and `children`). On a

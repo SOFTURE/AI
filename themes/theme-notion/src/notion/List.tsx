@@ -133,8 +133,9 @@ function isDrawn(node: ReactNode): boolean {
  * top of the right column and its controls under it (with `sideLayout="inline"`, the state left of the controls on one
  * line). Both sides align to the top, so the state stands on the title's
  * line however many detail lines the identity has. With `href` the title is a link stretched over the whole row, so
- * the row is one box lit on hover, and an arrow sits beside the column on the title's line (never on a line of its
- * own); the column stays above the link. On a phone (below `md`) the column wraps under the identity, right-aligned. Place it in a `ListItem`.
+ * the row is one box lit on hover, and an arrow sits beside the column (never on a line of its own): on the status's
+ * line when a status stands over controls, otherwise level with the column's middle, so a control taller than the
+ * arrow shares its line; the column stays above the link. On a phone (below `md`) the column wraps under the identity, right-aligned. Place it in a `ListItem`.
  *
  * Row controls: at most one control inline in `actions` (a switch, or the row's one primary action); every other
  * action goes into `menu`, the destructive one last. A row with a single action keeps it inline and has no menu.
@@ -159,6 +160,9 @@ export function ListEntry({
   const hasControls = hasActions || hasMenu;
   const hasColumn = hasStatus || hasControls;
   const hasLink = href !== undefined;
+  // A status stacked over controls keeps the arrow on the status's (the title's) line (#1497); a one-line column
+  // shares its middle with the arrow, so a control taller than the arrow stands level with it (#1520).
+  const isStackedColumn = sideLayout === "stack" && hasStatus && hasControls;
   const titleClasses = "min-w-0 text-ui-medium text-foreground";
   return (
     <div
@@ -193,7 +197,10 @@ export function ListEntry({
       {hasColumn || hasLink ? (
         <div
           data-slot="list-entry-side"
-          className="group/list-entry-side pointer-events-none relative z-10 ml-auto flex max-w-full min-w-0 flex-nowrap items-start gap-2 has-[[data-row-wide]]:ml-0 has-[[data-row-wide]]:basis-full"
+          className={cn(
+            "group/list-entry-side pointer-events-none relative z-10 ml-auto flex max-w-full min-w-0 flex-nowrap gap-2 has-[[data-row-wide]]:ml-0 has-[[data-row-wide]]:basis-full",
+            isStackedColumn ? "items-start" : "items-center has-[[data-row-wide]]:items-start",
+          )}
         >
           {hasColumn ? (
             <div
