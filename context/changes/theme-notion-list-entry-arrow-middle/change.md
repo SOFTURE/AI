@@ -11,13 +11,13 @@ updated: 2026-11-26
 
 ## Intent
 In a linked `ListEntry` with a control beside the arrow (an icon button such as a delete trash can), the arrow and
-the control read as one line: their vertical middles match, on a desktop (a 28 px icon button) and on a phone (a 44 px
+the control read as one line: their vertical middles match, on a desktop (a 24 px icon button) and on a phone (a 44 px
 touch target). Issue #1520 (`bug`, `pkg: theme-notion`).
 
 ## Context
 #1497 (0.37.0) aligned `list-entry-side` to the top (`items-start`) and gave the arrow a 20 px box (`h-5`), so the
 arrow sits on the title's line next to a status badge. With a control taller than 20 px and no status above it, the
-arrow's middle stands 4 to 12 px above the control's middle.
+arrow's middle stands 2 (desktop) to 12 px (phone) above the control's middle.
 
 ## Scope
 - `list-entry-side` centres the arrow on the right column whenever the column is a single line of content; with a

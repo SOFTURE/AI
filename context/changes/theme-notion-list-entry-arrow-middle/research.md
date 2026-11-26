@@ -5,8 +5,8 @@
   column (`list-entry-column`) and the arrow (`list-entry-arrow`, `flex h-5 items-center`). The side's own place in the
   row is set by the root (`items-start`, #1497); the side's `align-items` only places the column and the arrow
   against each other.
-- `Button size="icon-sm"` is 28 px (`size-7`) on a desktop; below `md` the actions slot gives every control
-  `min-h-touch-target` (44 px). With `items-start` the 20 px arrow box sits at the top: its middle is 4 px (desktop)
+- `Button size="icon-sm"` is 24 px (`size-6`) on a desktop; below `md` the actions slot gives every control
+  `min-h-touch-target` (44 px). With `items-start` the 20 px arrow box sits at the top: its middle is 2 px (desktop)
   to 12 px (phone) above the control's middle.
 - With the stacked layout (status over controls, the default `sideLayout`) the column is two lines; #1497's geometry
   test (`visual/fit.spec.ts`) requires the arrow on the badge's (the title's) line there. Centring the side for every

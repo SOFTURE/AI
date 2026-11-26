@@ -11,7 +11,7 @@ middle. JSDoc, README and CHANGELOG say so.
 - Tests first (red): in `tests/notion/List.test.tsx` a linked row with actions only has a side with `items-center`
   and `has-[[data-row-wide]]:items-start`, a row with a status over actions keeps `items-start`, an inline row is
   centred; the gallery's `ListEntry` case gets a linked row with one icon action (delete) and no status; in
-  `visual/fit.spec.ts` that row's arrow middle is within 1 px of the action's middle at every viewport (28 px desktop,
+  `visual/fit.spec.ts` that row's arrow middle is within 1 px of the action's middle at every viewport (24 px desktop,
   44 px phone).
 - Code, the parity fixture (`UPDATE_FIXTURES=1`), the `ListEntry` gallery baselines, README, CHANGELOG `Unreleased`.
 - Done when: `npx vitest run themes/theme-notion` passes, the ListEntry tests of `visual/fit.spec.ts` and the gallery

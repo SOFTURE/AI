@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `ListEntry` (#1520): in a linked row whose right column is one line (controls with no status, a status alone, or
+  `sideLayout="inline"`), the arrow shares the column's vertical middle, so an icon button beside it (24 px on a
+  desktop, its 44 px touch target on a phone) stands level with the arrow. A status stacked over controls keeps the
+  arrow on the status's (the title's) line. An app's `[data-slot="list-entry-side"] { align-items: center }`
+  override can go.
+
 ## 0.41.0
 
 - `DialogContent size="form"` and `DialogFooter sticky` (#1515): a create or edit form in a dialog is `max-w-2xl`

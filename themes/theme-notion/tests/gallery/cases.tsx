@@ -1679,6 +1679,18 @@ const NOTION_CASES: readonly GalleryCase[] = [
           </ListItem>
           <ListItem>
             <ListEntry
+              href="#deploy-41"
+              title="Preview deploy of the docs"
+              details={<span>docs · 9b07d3e</span>}
+              actions={
+                <Button variant="ghost" size="icon-sm" aria-label="Delete preview">
+                  <Trash2 />
+                </Button>
+              }
+            />
+          </ListItem>
+          <ListItem>
+            <ListEntry
               title="Weekly backup"
               details={<span>Every Sunday at 03:00</span>}
               status={

@@ -422,6 +422,27 @@ test("a list entry with a multi-line identity keeps its state and arrow on the t
   expect(Math.abs(measures.arrowMiddle - measures.titleLineMiddle)).toBeLessThanOrEqual(2);
 });
 
+// #1520: in a linked row with a control and no status, the arrow and the control share one vertical middle, with the
+// 24 px icon button on a desktop and its 44 px touch target on a phone.
+test("a linked list entry with a control only centres its arrow on the control", async ({ page }) => {
+  await page.goto(PAGE_URL);
+  await page.evaluate(() => document.fonts.ready);
+  const entry = page.locator('[data-gallery-list-entry] [data-slot="list-entry"]').nth(1);
+  const measures = await entry.evaluate((element) => {
+    const find = (selector: string): DOMRect => {
+      const target = element.querySelector(selector);
+      if (target === null) throw new Error(`no ${selector} in the list entry`);
+      return target.getBoundingClientRect();
+    };
+    const middle = (box: DOMRect): number => box.top + box.height / 2;
+    const control = find('[data-slot="list-entry-actions"] > *');
+    return { arrowMiddle: middle(find('[data-slot="list-entry-arrow"]')), controlMiddle: middle(control), controlHeight: control.height };
+  });
+
+  expect(measures.controlHeight).toBeGreaterThan(20); // taller than the arrow's 20 px box
+  expect(Math.abs(measures.arrowMiddle - measures.controlMiddle)).toBeLessThanOrEqual(1);
+});
+
 test("a data-row-wide control takes the full row width under the identity, starting on the left", async ({ page }) => {
   await page.goto(PAGE_URL);
   await page.evaluate(() => document.fonts.ready);

@@ -230,6 +230,18 @@ describe("ListEntry (#1481)", () => {
     expect(readClasses(readOpening(html, "list-entry-arrow"))).toEqual(expect.arrayContaining(["h-5", "items-center"]));
   });
 
+  it("centres the arrow on a one-line column and keeps it on the status's line over stacked controls (#1520)", () => {
+    const sideOf = (props: Partial<ListEntryProps>) => readClasses(readOpening(renderEntry({ href: "/deploys/42", ...props }), "list-entry-side"));
+    const centred = ["items-center", "has-[[data-row-wide]]:items-start"];
+
+    expect(sideOf({ status: undefined })).toEqual(expect.arrayContaining(centred));
+    expect(sideOf({ status: undefined })).not.toContain("items-start");
+    expect(sideOf({ actions: undefined })).toEqual(expect.arrayContaining(centred));
+    expect(sideOf({ sideLayout: "inline" })).toEqual(expect.arrayContaining(centred));
+    expect(sideOf({})).toContain("items-start");
+    expect(sideOf({})).not.toContain("items-center");
+  });
+
   it("draws only the slots it is given", () => {
     const html = renderToStaticMarkup(<ListEntry title="Plain" />);
 
