@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-result-badge-attributes
 title: "theme-notion: ResultBadge passes the app's data-* attributes and id to its badge (issue #1493)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 1493
 branch: claude/project-thread-ilfyuv
 created: 2026-11-26
 updated: 2026-11-26
+archived_at: 2026-11-26
 ---
 
 ## Intent
@@ -33,3 +34,9 @@ note) loses the attributes its unit and browser tests read.
 
 ## Notes
 - frame skipped: a reported gap with a proposed shape and acceptance criteria in the issue.
+
+## Done
+`ResultBadge` passes every remaining `span` prop (`data-*`, `id`, ARIA) to its badge, before its own `data-slot`,
+`data-tone`, `data-color` and `data-spinning`, so an app marks a badge with what it shows without wrapping it and the
+theme's attributes stay the theme's. Tests (red first), README, CHANGELOG `Unreleased`, the Design System artifact
+(v89-90); ships in the next theme-notion release.

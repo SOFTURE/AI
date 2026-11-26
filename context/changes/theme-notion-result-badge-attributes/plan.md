@@ -23,5 +23,11 @@ component spreads the rest on the `Badge` first, then sets `variant`, `color`, `
 - Released as a patch or minor with the next theme-notion release (additive props, no dependent range broken).
 
 ## Progress
-- [ ] Phase 1: pass the app's attributes through
-- [ ] Phase 2: Design System artifact
+- [x] Phase 1: pass the app's attributes through (the attribute test red before the code: 1 failed, 7 passed; after:
+  `npx vitest run themes/theme-notion tests/repo` 2367 tests passed, `tests/repo/deploy-workflows.test.ts` after
+  installing the container's missing `ssh-keygen`; typecheck, ESLint and the language gate passed in the pre-commit
+  hook) — d2be102
+- [x] Phase 2: Design System artifact (v89-90: `ResultBadge` in `bundle.js` copies the remaining props onto the badge
+  before its own attributes, checked in Chromium: `data-read-status="ok"` and `id` reach the badge, an app's
+  `data-tone`, `data-slot` and `data-spinning` do not; `ResultBadgeProps` in `index.d.ts` extends the `span` props;
+  the ResultBadge card says so)
