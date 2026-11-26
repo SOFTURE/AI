@@ -306,7 +306,7 @@ jobs:
               (( contained < 5 )) || break
             fi
           done < "$work/merged"
-          read -r pr first_merge head < "$work/contained" || true
+          read -r pr _ head < "$work/contained" || true
           [ -n "$pr" ] || answer false "no pull request merged into $branch is in the history of $TAG."
           [[ "$head" =~ ^[0-9a-f]{40}$ ]] || answer false "pull request #$pr names no head commit."
 
