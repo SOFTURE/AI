@@ -1,7 +1,7 @@
 ---
 change_id: theme-notion-date-time-picker
 title: "theme-notion: DatePicker and DateTimePicker with the theme's calendar and time field (issue #1509)"
-status: in_progress
+status: impl_reviewed
 roadmap_item: null
 issue: 1509
 branch: claude/project-thread-6hz0ds
