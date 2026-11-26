@@ -39,7 +39,7 @@ const DRIFTS_735 = [
     fixed: '"flex h-full w-(--sidebar-width) flex-col bg-sidebar text-sidebar-foreground",\n          className\n        )}\n        {...props}\n      >\n        {children}\n      </div>\n    )\n  }\n\n  if (isMobile)',
     drifted: '"relative w-(--sidebar-width) bg-transparent transition-[width] duration-200 ease-linear",\n          className\n        )}\n        {...props}\n      >\n        {children}\n      </div>\n    )\n  }\n\n  if (isMobile)',
   },
-  { file: "checkbox", fixed: '<CheckIcon className="size-3.5" />', drifted: '<CheckIcon className="grid place-content-center text-current transition-none" />' },
+  { file: "checkbox", fixed: '<CheckIcon className="size-3.5 group-data-[state=indeterminate]/checkbox-indicator:hidden" />', drifted: '<CheckIcon className="grid place-content-center text-current transition-none" />' },
   { file: "select", fixed: '<ChevronUpIcon className="size-4" />', drifted: '<ChevronUpIcon className="flex cursor-default items-center justify-center py-1" />' },
   {
     file: "field",

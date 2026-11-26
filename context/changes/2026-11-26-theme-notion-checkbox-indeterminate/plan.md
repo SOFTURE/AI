@@ -32,5 +32,11 @@ The upstream deltas, README (controls line) and CHANGELOG `## Unreleased` descri
 - Release: a minor (a new look for an existing state, no API change, no dependent range broken).
 
 ## Progress
-- [ ] Phase 1: indeterminate look (TDD)
+- [x] Phase 1: indeterminate look (TDD) (red first: the 2 new tests in `tests/ui/checkbox.test.tsx` failed (no
+  indeterminate classes, no minus icon); after: `npx vitest run themes/theme-notion` 1467 passed (parity fixture
+  regenerated with `UPDATE_FIXTURES=1`, only the checkbox slots changed; the #735 drift fixture now names the new tick
+  line), `visual/gallery.spec.ts` 152 passed with only `gallery.png` re-baselined (the new indeterminate box);
+  Chromium on the gallery, light and dark: the indeterminate box has `data-state="indeterminate"`,
+  `aria-checked="mixed"`, the checked box's background and border `rgb(1, 113, 207)`, the minus icon shown (14 px)
+  and the tick `display: none`; typecheck, ESLint, the language gate and `npm run build` passed)
 - [ ] Phase 2: Design System artifact

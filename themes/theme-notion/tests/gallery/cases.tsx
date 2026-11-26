@@ -666,6 +666,7 @@ const UI_CASES: readonly GalleryCase[] = [
       <div className="flex items-center gap-3">
         <Checkbox aria-label="Unchecked" />
         <Checkbox aria-label="Checked" defaultChecked />
+        <Checkbox aria-label="Some selected" defaultChecked="indeterminate" />
         <Checkbox aria-label="Invalid" aria-invalid />
         <Checkbox aria-label="Disabled" disabled defaultChecked />
       </div>

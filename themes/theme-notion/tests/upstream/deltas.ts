@@ -246,9 +246,19 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "import { cn } from \"../lib/utils.js\"",
     },
     {
-      reason: "checkbox: 16 px, radius 3, a 1.5 px `muted-foreground` border, the theme's focus ring",
+      reason: "imports: the minus icon of the indeterminate state (#1514)",
+      upstream: "import { CheckIcon } from \"lucide-react\"",
+      ours: "import { CheckIcon, MinusIcon } from \"lucide-react\"",
+    },
+    {
+      reason: "checkbox: 16 px, radius 3, a 1.5 px `muted-foreground` border, the theme's focus ring, the indeterminate state filled like the checked one (#1514)",
       upstream: "        \"peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary\",",
-      ours: "        \"peer size-4 shrink-0 rounded-xs border-[1.5px] border-muted-foreground transition-shadow outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary\",",
+      ours: "        \"peer size-4 shrink-0 rounded-xs border-[1.5px] border-muted-foreground transition-shadow outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground data-[state=indeterminate]:border-primary data-[state=indeterminate]:bg-primary data-[state=indeterminate]:text-primary-foreground dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary dark:data-[state=indeterminate]:bg-primary\",",
+    },
+    {
+      reason: "checkbox: the indeterminate state draws a minus sign, the checked state the tick, both in the filled box (#1514)",
+      upstream: "        className=\"grid place-content-center text-current transition-none\"\n      >\n        <CheckIcon className=\"size-3.5\" />",
+      ours: "        className=\"group/checkbox-indicator grid place-content-center text-current transition-none\"\n      >\n        <CheckIcon className=\"size-3.5 group-data-[state=indeterminate]/checkbox-indicator:hidden\" />\n        <MinusIcon className=\"hidden size-3.5 group-data-[state=indeterminate]/checkbox-indicator:block\" />",
     },
   ],
   "collapsible": [
