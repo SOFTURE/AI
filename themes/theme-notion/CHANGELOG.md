@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.39.0
 
 - `DatePicker` and `DateTimePicker` (#1509): a day (`YYYY-MM-DD`) or a local date-time (`YYYY-MM-DDTHH:mm`, core's
   `LocalDateTime`) picked from the theme's calendar instead of the browser's native inputs. A trigger with the `Input`
