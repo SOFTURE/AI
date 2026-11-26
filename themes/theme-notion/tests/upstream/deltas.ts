@@ -401,6 +401,31 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       upstream: "        data-slot=\"dialog-content\"\n",
       ours: "        data-slot=\"dialog-content\"\n        onOpenAutoFocus={withFirstFieldFocus(onOpenAutoFocus)}\n",
     },
+    {
+      reason: "dialog: the `form` size, a create or edit form 672 px wide from `md` that scrolls inside, and the sticky footer that stays at its bottom (#1515)",
+      upstream: "  // `sm` is a small popup for little data, narrower than the default.\n  size?: \"sm\" | \"default\" | \"wide\" | \"lg\"",
+      ours: "  // `sm` is a small popup for little data, narrower than the default.\n  // `form` is a create or edit form: `max-w-2xl` from `md`, its height by content, scrolling inside on a short screen.\n  size?: \"sm\" | \"default\" | \"wide\" | \"lg\" | \"form\"",
+    },
+    {
+      reason: "dialog: the `form` size, a create or edit form 672 px wide from `md` that scrolls inside, and the sticky footer that stays at its bottom (#1515)",
+      upstream: "          size === \"sm\" && \"max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md\",\n",
+      ours: "          size === \"sm\" && \"max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md\",\n          size === \"form\" && \"max-h-[calc(100dvh-2rem)] overflow-y-auto md:max-w-2xl\",\n",
+    },
+    {
+      reason: "dialog: the `form` size, a create or edit form 672 px wide from `md` that scrolls inside, and the sticky footer that stays at its bottom (#1515)",
+      upstream: "  closeLabel = messages.dialog.close,\n  children,",
+      ours: "  closeLabel = messages.dialog.close,\n  sticky = false,\n  children,",
+    },
+    {
+      reason: "dialog: the `form` size, a create or edit form 672 px wide from `md` that scrolls inside, and the sticky footer that stays at its bottom (#1515)",
+      upstream: "  // The close button's text, from the app's message layer.\n  closeLabel?: string\n}) {",
+      ours: "  // The close button's text, from the app's message layer.\n  closeLabel?: string\n  // Keeps the footer at the bottom edge of a scrolling dialog, over the content's `p-6`.\n  sticky?: boolean\n}) {",
+    },
+    {
+      reason: "dialog: the `form` size, a create or edit form 672 px wide from `md` that scrolls inside, and the sticky footer that stays at its bottom (#1515)",
+      upstream: "      data-slot=\"dialog-footer\"\n      className={cn(\n        \"flex flex-col-reverse gap-2 sm:flex-row sm:justify-end\",\n",
+      ours: "      data-slot=\"dialog-footer\"\n      data-sticky={sticky ? \"true\" : undefined}\n      className={cn(\n        \"flex flex-col-reverse gap-2 sm:flex-row sm:justify-end\",\n        sticky &&\n          \"sticky -bottom-6 -mx-6 -mb-6 border-t border-border bg-popover px-6 py-4\",\n",
+    },
   ],
   "dropdown-menu": [
     {

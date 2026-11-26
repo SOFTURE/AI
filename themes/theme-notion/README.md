@@ -1074,7 +1074,24 @@ Deltas from stock shadcn:
   quarters of it from `sm`, the 1 rem gutter on a phone; its height is fixed and its content scrolls in a column
   (an app with a fixed header and footer sets `p-0 gap-0` and scrolls its own body with
   `min-h-0 flex-1 overflow-y-auto`). `size="sm"` is a small popup for little data: `max-w-md`, its height by
-  content up to the viewport's gutter, then scrolling. `DialogFooter showCloseButton` puts its close button
+  content up to the viewport's gutter, then scrolling. `size="form"` is a create or edit form: `max-w-2xl` (672 px)
+  from `md`, `max-w-lg` from `sm`, the 1 rem gutter on a phone, its height by content up to the viewport's gutter,
+  then scrolling inside. `DialogFooter sticky` keeps the footer at the bottom edge of a scrolling dialog (any size
+  that scrolls) while the fields scroll under it: a top border on the dialog's surface, bleeding over the content's
+  `p-6` (`sticky -bottom-6 -mx-6 -mb-6`, so an app that changes the content's padding sets its own offsets),
+  `data-sticky="true"`; on a phone its buttons stay full width with the primary on top.
+
+  ```tsx
+  <DialogContent size="form">
+    <DialogHeader>…</DialogHeader>
+    <FieldGroup>…</FieldGroup>
+    <DialogFooter sticky showCloseButton closeLabel="Cancel">
+      <Button type="submit">Create</Button>
+    </DialogFooter>
+  </DialogContent>
+  ```
+
+  `DialogFooter showCloseButton` puts its close button
   before `children`, so a form dialog's footer reads cancel then confirm (confirm on top on a phone); the button is
   `type="button"`, so inside a `<form>` it closes the dialog without submitting. `card`: `shadow-card` instead of a
   border.

@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `DialogContent size="form"` and `DialogFooter sticky` (#1515): a create or edit form in a dialog is `max-w-2xl`
+  (672 px) from `md`, `max-w-lg` from `sm`, full width inside the 1 rem gutter on a phone, its height by content up
+  to the viewport's gutter and then scrolling inside. `sticky` keeps the footer (Cancel, primary) at the dialog's
+  bottom edge with a top border while the fields scroll; on a phone the buttons stay full width, primary on top.
+- Migration: an app with `size="wide"` plus `max-h-[calc(100dvh-2rem)] overflow-y-auto` on `DialogContent` and
+  `sticky -bottom-6 -mx-6 -mb-6 border-t border-border bg-popover px-6 py-4` on `DialogFooter` replaces them with
+  `size="form"` and `sticky`.
+
 ## 0.40.0
 
 - `Checkbox` indeterminate state (#1514): `checked="indeterminate"` draws the filled `primary` box of `checked` with a
