@@ -1,4 +1,4 @@
-import { BedDouble, Bell, Calendar, CircleCheck, CircleDashed, FileText, Folder, House, Inbox, LogOut, Plane, Plus, Rocket, RotateCw, Search, Settings, TrainFront, TriangleAlert, X } from "lucide-react";
+import { BedDouble, Bell, Calendar, CircleCheck, CircleDashed, FileText, Folder, House, Inbox, LogOut, Plane, Plus, Rocket, RotateCw, Search, Settings, Trash2, TrainFront, TriangleAlert, X } from "lucide-react";
 import type { ReactElement } from "react";
 
 import {
@@ -1689,6 +1689,49 @@ const NOTION_CASES: readonly GalleryCase[] = [
     ),
   },
   {
+    name: "ListEntry[sideLayout=inline]",
+    component: "ListEntry",
+    root: '[data-gallery-list-entry-inline]',
+    render: () => (
+      <div data-gallery-list-entry-inline="" className="w-full max-w-lg">
+        <List aria-label="Watched repositories">
+          <ListItem>
+            <ListEntry
+              sideLayout="inline"
+              title="softure/ai"
+              details={<span>Watched since 3 March</span>}
+              status={<ResultBadge tone="success">Readable</ResultBadge>}
+              actions={
+                <Button variant="ghost" size="icon-sm" aria-label="Stop watching">
+                  <Trash2 />
+                </Button>
+              }
+            />
+          </ListItem>
+          <ListItem>
+            <ListEntry
+              sideLayout="inline"
+              title="softure/skills"
+              details={<span>Watched since 5 March</span>}
+              status={<ResultBadge tone="warning">No access</ResultBadge>}
+              actions={
+                <Button variant="ghost" size="icon-sm" aria-label="Retry">
+                  <RotateCw />
+                </Button>
+              }
+              menu={
+                <RowActionsMenu
+                  actions={[{ label: "Copy address", onSelect: () => undefined }]}
+                  destructiveAction={{ label: "Stop watching", onSelect: () => undefined }}
+                />
+              }
+            />
+          </ListItem>
+        </List>
+      </div>
+    ),
+  },
+  {
     name: "ResultBadge",
     component: "ResultBadge",
     root: '[data-gallery-result-badges]',
@@ -1857,6 +1900,29 @@ const NOTION_CASES: readonly GalleryCase[] = [
           }
         >
           <p>Pages, owners and deadlines.</p>
+        </FoldRow>
+      </div>
+    ),
+  },
+  {
+    name: "FoldRow[sideLayout=inline]",
+    component: "FoldRow",
+    root: '[data-gallery-fold-row-inline]',
+    render: () => (
+      <div data-gallery-fold-row-inline="" className="w-full max-w-lg">
+        <FoldRow
+          sideLayout="inline"
+          title="softure/ai"
+          facts={["Watched since 3 March"]}
+          badges={[]}
+          status={<ResultBadge tone="success">Readable</ResultBadge>}
+          actions={
+            <Button variant="ghost" size="icon-sm" aria-label="Stop watching">
+              <Trash2 />
+            </Button>
+          }
+        >
+          <p>Issues and pull requests are read every hour.</p>
         </FoldRow>
       </div>
     ),

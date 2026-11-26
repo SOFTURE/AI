@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `ListEntry` and `FoldRow` `sideLayout` (#1508): `"inline"` puts the row's state left of its controls on one line
+  (the status, then the inline control and the menu), right-aligned and wrapping when the line runs out of room, in
+  place of the state over the controls. `FoldRow` applies it from `md` up (below `md` its column is already one line
+  under the summary); `ListEntry` keeps the full-width column for a `data-row-wide` control and, on a phone, wraps the
+  line under the identity with the same 44 px targets. The default, `"stack"`, is unchanged. The column carries
+  `data-side-layout`; the type is exported as `SideLayout`. An app drops its own `data-slot` overrides for a one-line
+  right column.
+
 ## 0.38.0
 
 - `HelpTooltip` (#1503): a field's "?" hint, a ghost icon button whose tooltip opens on hover, focus, click and tap,

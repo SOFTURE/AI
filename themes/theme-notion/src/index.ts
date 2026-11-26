@@ -83,6 +83,7 @@ export {
   type ListEntryProps,
   type ListRowProps,
   type ListSurface,
+  type SideLayout,
 } from "./notion/List.js";
 export { PALETTE_COLORS, type PaletteColor } from "./notion/palette.js";
 export { MarkPopover, type MarkPopoverProps } from "./notion/MarkPopover.js";
