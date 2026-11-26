@@ -115,9 +115,10 @@ function isDrawn(node: ReactNode): boolean {
 
 /**
  * A list row with an identity and a right column: the title and its detail lines on the left, the row's state at the
- * top of the right column and its controls under it. With `href` the title is a link stretched over the whole row, so
- * the row is one box lit on hover, and an arrow sits beside the column (never on a line of its own); the column stays
- * above the link. On a phone (below `md`) the column wraps under the identity, right-aligned. Place it in a `ListItem`.
+ * top of the right column and its controls under it. Both sides align to the top, so the state stands on the title's
+ * line however many detail lines the identity has. With `href` the title is a link stretched over the whole row, so
+ * the row is one box lit on hover, and an arrow sits beside the column on the title's line (never on a line of its
+ * own); the column stays above the link. On a phone (below `md`) the column wraps under the identity, right-aligned. Place it in a `ListItem`.
  *
  * Row controls: at most one control inline in `actions` (a switch, or the row's one primary action); every other
  * action goes into `menu`, the destructive one last. A row with a single action keeps it inline and has no menu.
@@ -146,7 +147,7 @@ export function ListEntry({
     <div
       data-slot="list-entry"
       className={cn(
-        "relative flex w-full min-w-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-md px-2 py-(--list-row-y) text-ui transition-colors duration-100 hover:bg-accent",
+        "relative flex w-full min-w-0 flex-wrap items-start gap-x-3 gap-y-1 rounded-md px-2 py-(--list-row-y) text-ui transition-colors duration-100 hover:bg-accent",
         "has-[[data-slot=list-entry-title]:focus-visible]:ring-2 has-[[data-slot=list-entry-title]:focus-visible]:ring-ring",
         className,
       )}
@@ -175,7 +176,7 @@ export function ListEntry({
       {hasColumn || hasLink ? (
         <div
           data-slot="list-entry-side"
-          className="group/list-entry-side pointer-events-none relative z-10 ml-auto flex max-w-full min-w-0 flex-nowrap items-center gap-2 has-[[data-row-wide]]:ml-0 has-[[data-row-wide]]:basis-full"
+          className="group/list-entry-side pointer-events-none relative z-10 ml-auto flex max-w-full min-w-0 flex-nowrap items-start gap-2 has-[[data-row-wide]]:ml-0 has-[[data-row-wide]]:basis-full"
         >
           {hasColumn ? (
             <div
@@ -212,7 +213,7 @@ export function ListEntry({
             </div>
           ) : null}
           {hasLink ? (
-            <span data-slot="list-entry-arrow" aria-hidden="true" className="flex shrink-0 text-muted-foreground">
+            <span data-slot="list-entry-arrow" aria-hidden="true" className="flex h-5 shrink-0 items-center text-muted-foreground">
               <ChevronRight strokeWidth={ICON_STROKE_WIDTH} className="size-4" />
             </span>
           ) : null}
