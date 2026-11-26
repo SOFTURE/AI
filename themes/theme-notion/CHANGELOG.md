@@ -4,6 +4,11 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `RowActionsMenu` (#1502): the confirmation dialog's Cancel and confirm buttons are the 44 px touch target below `md`
+  (`max-md:h-touch-target`), like the menu's items; a desktop keeps the compact 28 px buttons.
+
 ## 0.37.0
 
 - `FoldRow` (#1495): `align="start"` lines the bar up with the summary's first line: the chevron sits on that line

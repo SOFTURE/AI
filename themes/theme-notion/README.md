@@ -570,7 +570,7 @@ back to the menu button. A destructive `onSelect` that returns a promise (a serv
 both buttons disabled and `confirm.pendingLabel` ("Deleting…") on the confirm button until it settles: it closes on
 success and stays open on failure, where the app shows its own error. An action that opens the app's own dialog sets
 `opensDialog`, so the menu leaves focus to that dialog; pass `triggerRef` and return focus to the menu button from the
-dialog's `onCloseAutoFocus`. Below `md` every item is the 44 px touch target; an action's `id` renders as
+dialog's `onCloseAutoFocus`. Below `md` every item, and the confirmation's Cancel and confirm buttons, are the 44 px touch target; an action's `id` renders as
 `data-row-action` for browser tests. The menu opens with Enter, Space or ArrowDown, and the arrow keys move between items. A row
 with a single action keeps it inline and has no menu. The inline control and the menu button never wrap apart, and on
 a phone each is at least the touch target (44 px): pass the switch `size="touch"` (with `className="md:m-0 md:h-4

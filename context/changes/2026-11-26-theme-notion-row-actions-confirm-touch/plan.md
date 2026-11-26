@@ -21,5 +21,5 @@ to the confirmation's `AlertDialogCancel` and `AlertDialogAction`.
 - Released as a patch: a fix with no API change.
 
 ## Progress
-- [ ] Phase 1: touch-size confirmation buttons
+- [x] Phase 1: touch-size confirmation buttons (new test red before the code: `max-md:h-touch-target` missing on both buttons; after: `npx vitest run themes/theme-notion` 1414 tests passed; typecheck, ESLint, language gate and build in the pre-commit and below) PHASE1SHA
 - [ ] Phase 2: Design System artifact

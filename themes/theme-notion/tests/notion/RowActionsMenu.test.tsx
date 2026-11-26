@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createRef, useState } from "react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -277,5 +277,24 @@ describe("RowActionsMenu: touch items and test hooks (#1492)", () => {
 
     expect(items.map((item) => item.getAttribute("data-row-action"))).toEqual(["test", "delete"]);
     for (const item of items) expect(item.className.split(" ")).toContain("max-md:min-h-touch-target");
+  });
+});
+
+describe("RowActionsMenu: touch confirmation buttons (#1502)", () => {
+  it("makes the confirmation's Cancel and confirm buttons the touch target below md and keeps them compact above", async () => {
+    renderMenu();
+    openWithKeyboard();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    const dialog = await screen.findByRole("alertdialog");
+    const buttons = [
+      within(dialog).getByRole("button", { name: "Keep" }),
+      within(dialog).getByRole("button", { name: "Delete" }),
+    ];
+
+    for (const button of buttons) {
+      const classes = button.className.split(" ");
+      expect(classes).toContain("max-md:h-touch-target");
+      expect(classes).toContain("h-7");
+    }
   });
 });
