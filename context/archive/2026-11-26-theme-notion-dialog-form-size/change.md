@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-dialog-form-size
 title: "theme-notion: DialogContent gets a form size and DialogFooter a sticky footer (issue #1515)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1515
 branch: claude/project-thread-txjk71
 created: 2026-11-26
 updated: 2026-11-26
+archived_at: 2026-11-26
 ---
 
 ## Intent
@@ -33,3 +34,12 @@ the bottom of a scrolling dialog. The app works around it with class overrides o
 
 ## Notes
 - frame skipped: the issue names the problem, the target sizes and a proposal.
+
+## Done
+`DialogContent size="form"` is a create or edit form dialog: `max-w-2xl` (672 px) from `md`, `max-w-lg` from `sm`, the
+1 rem gutter on a phone, its height by content up to the viewport's gutter and then scrolling inside. `DialogFooter
+sticky` keeps the footer at the bottom edge of a scrolling dialog with a top border (`data-sticky="true"`); on a phone
+the buttons stay full width, primary on top. Unit tests (red first), the `Dialog[size=form]` gallery case and its 4
+baselines, upstream deltas, parity fixture, README, CHANGELOG `Unreleased`, the Design System artifact (v107-108).
+Ships in the next theme-notion release; an adopting app drops its `max-h`/`overflow` and sticky footer overrides for
+`size="form"` and `sticky`.
