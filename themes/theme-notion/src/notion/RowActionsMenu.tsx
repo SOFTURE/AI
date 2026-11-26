@@ -82,6 +82,8 @@ export interface RowActionsMenuProps {
 
 // Below `md` every item is the touch target, as the row's own controls are; a desktop keeps the compact items.
 const ITEM_TOUCH_CLASS = "max-md:min-h-touch-target";
+// The confirmation's Cancel and confirm buttons follow the same rule: 44 px below `md`, the compact 28 px above.
+const BUTTON_TOUCH_CLASS = "max-md:h-touch-target";
 
 function assignRef<T>(ref: Ref<T> | undefined, value: T | null): void {
   if (typeof ref === "function") ref(value);
@@ -225,9 +227,10 @@ export function RowActionsMenu({
               ) : null}
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={isPending}>{confirmation.cancelLabel}</AlertDialogCancel>
+              <AlertDialogCancel className={BUTTON_TOUCH_CLASS} disabled={isPending}>{confirmation.cancelLabel}</AlertDialogCancel>
               <AlertDialogAction
                 variant="destructive"
+                className={BUTTON_TOUCH_CLASS}
                 disabled={isPending}
                 aria-busy={isPending || undefined}
                 onClick={confirmDestructive}
