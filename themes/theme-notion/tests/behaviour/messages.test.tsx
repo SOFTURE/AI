@@ -41,6 +41,7 @@ import {
   type UploadFileItem,
   type UploadState,
   RowActionsMenu,
+  TableViewSettings,
 } from "../../src/index.js";
 import { installDomShims } from "../gallery/dom.js";
 
@@ -183,6 +184,37 @@ const CASES: Readonly<Record<string, MessageCase>> = {
     render: (text) => <HelpTooltip {...(text === undefined ? {} : { label: text })}>Hint</HelpTooltip>,
     read: attributeOf('[data-slot="help-tooltip-trigger"]', "aria-label"),
   },
+  // The view settings' panel, open, with a shown and a hidden column, so every heading and button renders.
+  ...Object.fromEntries(
+    (
+      [
+        ["trigger", attributeOf('[data-slot="table-view-settings-trigger"]', "aria-label")],
+        ["title", textOf('[data-slot="table-view-settings"] h2')],
+        ["shown", textOf('[data-group="shown"] h3')],
+        ["hidden", textOf('[data-group="hidden"] h3')],
+        ["showAll", textOf('[data-slot="table-view-settings-show-all"]')],
+        ["hideAll", textOf('[data-slot="table-view-settings-hide-all"]')],
+        ["reorder", attributeOf('[data-slot="table-view-settings"] [data-slot="sortable-list"]', "aria-label")],
+      ] as const
+    ).map(([key, read]): [string, MessageCase] => [
+      `tableViewSettings.${key}`,
+      {
+        render: (text) => (
+          <TableViewSettings
+            defaultOpen
+            canReorder
+            columns={[
+              { id: "a", label: "A", isVisible: true },
+              { id: "b", label: "B", isVisible: false },
+            ]}
+            onChange={() => undefined}
+            messages={text === undefined ? undefined : { [key]: text }}
+          />
+        ),
+        read,
+      },
+    ]),
+  ),
   "filterChip.add": { render: (text) => <FilterChipAdd label={text}>{null}</FilterChipAdd>, read: textOf('[data-slot="filter-chip-add"] span') },
   ...Object.fromEntries(
     (["done", "current", "todo", "failed"] as const satisfies readonly StepState[]).map((state) => [

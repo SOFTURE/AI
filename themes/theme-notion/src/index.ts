@@ -71,6 +71,19 @@ export {
   type DateTimePickerProps,
 } from "./notion/DatePicker.js";
 export { HelpTooltip, type HelpTooltipProps } from "./notion/HelpTooltip.js";
+export {
+  applyColumnVisibility,
+  TableViewSettings,
+  useTableColumns,
+  type TableColumnDefinition,
+  type TableColumnsState,
+  type TableColumnsStore,
+  type TableColumnsView,
+  type TableViewColumn,
+  type TableViewSettingsMessages,
+  type TableViewSettingsProps,
+  type UseTableColumnsOptions,
+} from "./notion/TableViewSettings.js";
 export { FoldRow, type FoldRowAlign, type FoldRowBadge, type FoldRowProps } from "./notion/FoldRow.js";
 export { InstallBar, type InstallBarOffer, type InstallBarProps } from "./notion/InstallBar.js";
 export { LaunchScreen, type LaunchScreenProps } from "./notion/LaunchScreen.js";

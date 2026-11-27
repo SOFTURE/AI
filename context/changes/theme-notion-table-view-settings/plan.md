@@ -44,5 +44,5 @@
 - Released as a minor: new exports, no change to existing ones.
 
 ## Progress
-- [ ] Phase 1: TableViewSettings, helper and hook (TDD)
+- [x] Phase 1: TableViewSettings, helper and hook (TDD) (`npx vitest run themes/theme-notion` 75 files, 1502 tests passed, 16 new in `tests/notion/TableViewSettings.test.tsx`; fixture by `UPDATE_FIXTURES=1`; `gallery.png` baselines regenerated and `TableViewSettingsOpen.png` added in Chromium 1243, axe clean; a Chromium check of the open case at 390 px dark showed the sortable rows on the popover's own background after `bg-transparent`; typecheck, lint and build green)
 - [ ] Phase 2: Design System artifact
