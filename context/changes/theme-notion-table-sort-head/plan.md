@@ -1,7 +1,7 @@
 # Plan: theme-notion-table-sort-head
 
 ## Approach
-`src/notion/TableSortHead.tsx`:
+`src/notion/TableSortHead.tsx` (the component) and `src/notion/sort-rows.ts` (types and helpers, no `"use client"`):
 - `type SortDirection = "ascending" | "descending" | "none"`; `type SortCycle = "three-state" | "two-state"`.
 - `nextSortDirection(direction, cycle = "three-state")`: three-state none → descending → ascending → none; two-state
   none → descending → ascending → descending.
@@ -41,5 +41,5 @@
 - Released as a minor: new exports, no change to existing ones.
 
 ## Progress
-- [x] Phase 1: TableSortHead and sortRows (TDD) (red first: `npx vitest run themes/theme-notion/tests/notion/TableSortHead.test.tsx` failed with no `messages.tableSortHead`; after: `npx vitest run themes/theme-notion` 75 files, 1498 tests passed; fixture by `UPDATE_FIXTURES=1`; `gallery.png` baselines regenerated in Chromium 1243 (232 visual tests passed, axe clean); Chromium check of the gallery case in light and dark: labels line up with the cells, 28 px buttons, a muted up-down chevron on the unsorted column, a down chevron on the right-aligned sorted one, `aria-sort` only there; typecheck, ESLint, language gate and the package build pass)
-- [ ] Phase 2: Design System artifact
+- [x] Phase 1: TableSortHead and sortRows (TDD) (red first: `npx vitest run themes/theme-notion/tests/notion/TableSortHead.test.tsx` failed with no `messages.tableSortHead`; after: `npx vitest run themes/theme-notion` 75 files, 1498 tests passed; fixture by `UPDATE_FIXTURES=1`; `gallery.png` baselines regenerated in Chromium 1243 (232 visual tests passed, axe clean); Chromium check of the gallery case in light and dark: labels line up with the cells, 28 px buttons, a muted up-down chevron on the unsorted column, a down chevron on the right-aligned sorted one, `aria-sort` only there; typecheck, ESLint, language gate and the package build pass; the pre-push run then failed `tests/repo/themes.test.ts` (a `"use client"` module exported the helpers): `nextSortDirection` and `sortRows` moved to `src/notion/sort-rows.ts`, so a Server Component can sort; after the merge of master with #1529: 76 files, 1525 tests passed, `gallery.png` baselines regenerated, 236 visual tests passed)
+- [x] Phase 2: Design System artifact (version 111-112: a `TableSortHead` IIFE appended to `bundle.js` with `nextSortDirection` and `sortRows`, chevrons drawn inline, header `{"name":"TableSortHead"}`, `-ml-2`, `-mr-2` and `text-right` appended to `bundle.css` as a trailing `@layer utilities{}`, types in `index.d.ts`, a new TableSortHead card and a note on the Table card, `lastChange` in the index; checked with `node vm.Script` and in Chromium with no console error: the card sorts by amount descending, a click on Number sorts descending, Enter then ascending, `aria-sort` follows and the hidden text names the next direction)
