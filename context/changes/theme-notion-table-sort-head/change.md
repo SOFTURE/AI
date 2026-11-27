@@ -22,7 +22,7 @@ theme-notion 0.41.1 has the shadcn `Table` family (`TableHead` is a plain `<th>`
 the accessible markup.
 
 ## Scope
-- New composition `src/notion/TableSortHead.tsx` (`TableSortHead`, `nextSortDirection`, `sortRows`, `SortDirection`),
+- New composition `src/notion/TableSortHead.tsx` (`TableSortHead`) and `src/notion/sort-rows.ts` (`nextSortDirection`, `sortRows`, `SortDirection`, no `"use client"`, so a Server Component can sort),
   exported from the package root, with English defaults for the announced next direction in `messages/en.ts`.
 - Unit tests, the gallery case, the class fixture, the visual baselines, README, CHANGELOG `Unreleased`, the
   "NOTION · Design System" artifact.

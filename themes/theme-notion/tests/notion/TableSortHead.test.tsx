@@ -4,7 +4,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Table, TableHeader, TableRow } from "../../src/ui/table.js";
-import { nextSortDirection, sortRows, TableSortHead, type SortDirection } from "../../src/notion/TableSortHead.js";
+import { nextSortDirection, sortRows, type SortDirection } from "../../src/notion/sort-rows.js";
+import { TableSortHead } from "../../src/notion/TableSortHead.js";
 
 afterEach(cleanup);
 
