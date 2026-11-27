@@ -14,8 +14,8 @@
 ## Phases
 ### Phase 1: client name on the identity (TDD)
 - Tests first (red): `tests/endpoint.test.ts` asserts the factory gets `via: "token", clientName: "Laptop"` for a
-  hand-issued token and `via: "oauth", clientName: <client name>` for an OAuth access token (a 70-character name is cut
-  to 60); `tests/adoption-gaps-315.test.ts` asserts the stdio identity carries `via: "stdio", clientName: "stdio"`.
+  hand-issued token and `via: "oauth", clientName: <client name>` for an OAuth access token, equal to the connected apps list's
+  `clientName` (the 60-character cut happens at registration and is covered by `tests/oauth-http.test.ts`); `tests/adoption-gaps-315.test.ts` asserts the stdio identity carries `via: "stdio", clientName: "stdio"`.
 - Code, README, CHANGELOG.
 - Done when: `npx vitest run modules/mcp-access modules/agent-ready` passes, typecheck, lint (with the language gate)
   and build pass.
@@ -30,4 +30,7 @@
 - Release: a patch (0.7.10). A minor (0.8.0) would fall outside agent-ready's `^0.7.0` range.
 
 ## Progress
-- [ ] Phase 1: client name on the identity (TDD)
+- [x] Phase 1: client name on the identity (TDD) (red first: the two new endpoint tests and the stdio identity test
+  failed, 3 of 55; after: `npx vitest run modules/mcp-access modules/agent-ready` 784 passed, with the exact-value
+  `verifyAccessToken` test extended by `via` and `clientName`; `npm run typecheck`, ESLint on the package with zero
+  warnings, `npm run lint:language` and `npm run build` passed) a628ebe

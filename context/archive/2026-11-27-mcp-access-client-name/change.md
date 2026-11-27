@@ -1,12 +1,13 @@
 ---
 change_id: mcp-access-client-name
 title: "mcp-access: McpServerIdentity names the calling client (issue #1524)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1524
 branch: claude/project-thread-8s5noz
 created: 2026-11-27
 updated: 2026-11-27
+archived_at: 2026-11-27
 ---
 
 ## Intent
@@ -30,3 +31,9 @@ mcp-access 0.7.9.
 
 ## Notes
 - frame skipped: an enhancement with the exact fields named in the issue.
+
+## Done
+`McpServerIdentity` carries `via` (`oauth`, `token` or `stdio`) and `clientName` (the OAuth client's registered name,
+at most 60 characters, or the hand-issued token's name), read with the bearer, no extra query; optional in the type so
+identities built elsewhere still fit. Tests (red first), README, CHANGELOG `Unreleased`. Ships in mcp-access 0.7.10; an
+adopting app drops its own lookup of the package's tables.
