@@ -3,19 +3,10 @@
   "project": "SOFTURE AI",
   "mode": "autonomous",
   "main_branch": "master",
-  "updated_at": "2026-11-27T09:12:02Z",
+  "updated_at": "2026-11-27T09:16:29Z",
   "active_roadmap": null,
   "queued": [],
-  "open_changes": [
-    {
-      "change_id": "bump-softure-packages-2026-11-27",
-      "title": "\"Bump @softure-ai/skills to 0.41.2 (issue",
-      "status": "open",
-      "roadmap_item": null,
-      "updated": "2026-11-27",
-      "stage": null
-    }
-  ],
+  "open_changes": [],
   "owner_queue": [],
   "last_release": null
 }
