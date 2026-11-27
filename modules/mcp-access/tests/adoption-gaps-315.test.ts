@@ -187,7 +187,7 @@ describe("the stdio entry", () => {
   it("serves the only account, read only by default", async () => {
     const alice = await createUser(test.database, "alice@example.com");
     const { started, client } = await start();
-    expect(started.ok && started.value.identity).toEqual({ userId: alice, canWrite: false, tokenId: "stdio" });
+    expect(started.ok && started.value.identity).toEqual({ userId: alice, canWrite: false, tokenId: "stdio", via: "stdio", clientName: "stdio" });
     expect(await callWhoami(client)).toEqual({ userId: alice, canWrite: false });
   });
 

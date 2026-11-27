@@ -194,7 +194,7 @@ describe("access tokens", () => {
   });
 
   describe("verifyAccessToken", () => {
-    it("returns the owner, the effective write access and the expiry", async () => {
+    it("returns the owner, the effective write access, the expiry and the client", async () => {
       const issued = await issue(alice, "Laptop", true);
       expect(await verifyAccessToken(test.ctx, issued.token)).toEqual({
         tokenId: issued.id,
@@ -202,6 +202,8 @@ describe("access tokens", () => {
         canWrite: true,
         expiresAt: issued.expiresAt,
         grantId: null,
+        via: "token",
+        clientName: "Laptop",
       });
     });
 

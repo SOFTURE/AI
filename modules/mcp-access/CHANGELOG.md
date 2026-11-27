@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## Unreleased
+
+- **The identity names the calling client:** `McpServerIdentity` carries `via` (`"oauth"` for an OAuth client's access
+  token, `"token"` for a hand-issued token, `"stdio"` for the stdio entry) and `clientName` (the OAuth client's
+  registered name, at most 60 characters, as the connected apps list shows it, or the hand-issued token's name). Both
+  are read with the bearer, so no extra query per request. New type `McpClientVia`. README.
+  - Migrate: an app that records who ordered a write takes `identity.clientName` instead of calling
+    `findTokenClientName` or reading the package's tables. The fields are optional in the type, so identities an app
+    builds in its tests need no change.
+
 ## 0.7.9
 
 - **Revoke and Disconnect ask first:** on the token page, a token's Revoke and a connected app's Disconnect open a

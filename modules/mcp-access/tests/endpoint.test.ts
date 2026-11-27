@@ -1,7 +1,7 @@
 // POST /api/mcp: the client is identified and counted, then the Bearer token verified, then the
 // app's factory serves the request with that token's identity. Every refusal says only what failed.
 import { MCP_RATE_LIMIT_BUCKETS } from "@softure-ai/mcp-access";
-import { createMcpEndpoint, issueAccessToken, revokeAccessToken, type McpServerFactory } from "@softure-ai/mcp-access/server";
+import { createMcpEndpoint, issueAccessToken, listOAuthGrants, revokeAccessToken, type McpServerFactory } from "@softure-ai/mcp-access/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { callTool, connectApp, createConfig, failOn, createDemoServer, createMcpRequest, createTestMcp, createUser, listTools, OAUTH_OPTIONS, OPTIONS, type TestMcp } from "./support.js";
 
@@ -50,6 +50,12 @@ describe("the MCP endpoint", () => {
       expect(response.status).toBe(200);
       expect((await readAnswer(response)).result?.content?.[0]?.text).toBe(JSON.stringify({ userId: alice, canWrite: false }));
       expect(createServer).toHaveBeenCalledWith(expect.objectContaining({ userId: alice, canWrite: false }));
+    });
+
+    it("names the hand-issued token as the calling client (#1524)", async () => {
+      const token = await issue(alice, false);
+      await send(callTool("whoami"), { token });
+      expect(createServer).toHaveBeenCalledWith(expect.objectContaining({ via: "token", clientName: "Laptop" }));
     });
 
     it("builds a server per request, so two accounts never share one", async () => {
@@ -165,6 +171,14 @@ describe("the MCP endpoint", () => {
       const { tokens } = await connectApp(oauthCtx(), alice, { canWrite: true });
       const response = await endpoint(oauthCtx(), createMcpRequest(callTool("whoami"), { token: tokens.accessToken }));
       expect((await readAnswer(response)).result?.content?.[0]?.text).toBe(JSON.stringify({ userId: alice, canWrite: true }));
+    });
+
+    it("names the OAuth client as the calling client, as the connected apps list shows it (#1524)", async () => {
+      const { tokens } = await connectApp(oauthCtx(), alice, { clientName: "Claude" });
+      await endpoint(oauthCtx(), createMcpRequest(callTool("whoami"), { token: tokens.accessToken }));
+      const [grant] = await listOAuthGrants(oauthCtx(), alice);
+      expect(grant?.clientName).toBe("Claude");
+      expect(createServer).toHaveBeenLastCalledWith(expect.objectContaining({ userId: alice, via: "oauth", clientName: grant?.clientName }));
     });
   });
 

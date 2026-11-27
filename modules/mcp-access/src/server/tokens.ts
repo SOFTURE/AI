@@ -186,6 +186,10 @@ export interface VerifiedAccessToken {
   readonly expiresAt: Date;
   /** The OAuth grant the token was issued from; null for a hand-issued token. */
   readonly grantId: string | null;
+  /** `oauth` for a grant's access token, `token` for a hand-issued one. */
+  readonly via: "oauth" | "token";
+  /** The token's name: the OAuth client's registered name for a grant's token, the person's label otherwise. */
+  readonly clientName: string;
 }
 
 /**
@@ -215,6 +219,8 @@ export async function verifyAccessToken(ctx: McpAccessContext, token: string): P
     canWrite: row.canWrite && options.allowWrites,
     expiresAt: row.expiresAt,
     grantId: row.grantId,
+    via: row.grantId === null ? "token" : "oauth",
+    clientName: row.name,
   };
 }
 
@@ -226,6 +232,8 @@ export interface ValidTokenRow {
   readonly expiresAt: Date;
   readonly grantId: string | null;
   readonly scopes: readonly string[];
+  /** The token's name: an OAuth grant's tokens carry the client's registered name. */
+  readonly name: string;
 }
 
 /**
@@ -243,6 +251,7 @@ export async function findValidToken(ctx: McpAccessContext, tokenHash: string, k
       expiresAt: accessTokens.expiresAt,
       grantId: accessTokens.grantId,
       scopes: accessTokens.scopes,
+      name: accessTokens.name,
     })
     .from(accessTokens)
     .innerJoin(users, eq(users.id, accessTokens.userId))

@@ -109,6 +109,7 @@ export type {
   McpIssueRefusal,
   McpIssueRefusalCode,
   McpClientSetup,
+  McpClientVia,
   McpServerIdentity,
   OAuthGrantView,
   RevokeGrantFormState,
