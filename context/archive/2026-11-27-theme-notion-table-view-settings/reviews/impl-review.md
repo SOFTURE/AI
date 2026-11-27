@@ -11,3 +11,5 @@ loads the store in an effect (SSR-safe), merges stored state with the definition
 default), saves only on changes made through it, and its tests cover defaults, merge, save and reset. The sortable
 rows were first drawn on the page background inside the popover (dark theme); `bg-transparent` fixed it and the
 baseline was regenerated. No Polish outside dictionaries; no new dependency.
+
+After the archive the pre-push repository test (`tests/repo/themes.test.ts`, client modules export only components and hooks) flagged `applyColumnVisibility` in the client module; it moved to `src/notion/apply-column-visibility.ts`, a plain module usable in Server Components, with the same export from the package root.

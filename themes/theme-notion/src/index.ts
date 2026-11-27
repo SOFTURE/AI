@@ -71,8 +71,8 @@ export {
   type DateTimePickerProps,
 } from "./notion/DatePicker.js";
 export { HelpTooltip, type HelpTooltipProps } from "./notion/HelpTooltip.js";
+export { applyColumnVisibility } from "./notion/apply-column-visibility.js";
 export {
-  applyColumnVisibility,
   TableViewSettings,
   useTableColumns,
   type TableColumnDefinition,
