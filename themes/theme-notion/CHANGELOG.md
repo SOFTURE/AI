@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `TableSortHead`, `sortRows` and `nextSortDirection` (#1528): a sortable column header for `Table`, a ghost button
+  with the column's name and a chevron for its direction (muted up-down while unsorted), `aria-sort` on the sorted
+  `<th>` only, hidden text announcing what a press does (`label`, English defaults in
+  `notionMessages.en.tableSortHead`), a none → descending → ascending → none cycle or a two-state one, and
+  `align="end"` for a right-aligned column. `sortRows` sorts rows in memory, stable in both directions, empty values
+  last. An app drops its own header button, indicator and `aria-sort`.
+
 ## 0.41.1
 
 - `ListEntry` (#1520): in a linked row whose right column is one line (controls with no status, a status alone, or

@@ -19,6 +19,8 @@ import {
   FileInput,
   FilterChipAdd,
   HelpTooltip,
+  TableSortHead,
+  type SortDirection,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -183,6 +185,31 @@ const CASES: Readonly<Record<string, MessageCase>> = {
     render: (text) => <HelpTooltip {...(text === undefined ? {} : { label: text })}>Hint</HelpTooltip>,
     read: attributeOf('[data-slot="help-tooltip-trigger"]', "aria-label"),
   },
+  ...Object.fromEntries(
+    (
+      [
+        ["descending", "none"],
+        ["ascending", "descending"],
+        ["none", "ascending"],
+      ] as const satisfies readonly (readonly [SortDirection, SortDirection])[]
+    ).map(([next, direction]) => [
+      `tableSortHead.${next}`,
+      {
+        render: (text: string | undefined) => (
+          <table>
+            <thead>
+              <tr>
+                <TableSortHead direction={direction} onSortChange={() => undefined} {...(text === undefined ? {} : { label: text })}>
+                  Amount
+                </TableSortHead>
+              </tr>
+            </thead>
+          </table>
+        ),
+        read: textOf('[data-slot="table-sort-label"]'),
+      },
+    ]),
+  ),
   "filterChip.add": { render: (text) => <FilterChipAdd label={text}>{null}</FilterChipAdd>, read: textOf('[data-slot="filter-chip-add"] span') },
   ...Object.fromEntries(
     (["done", "current", "todo", "failed"] as const satisfies readonly StepState[]).map((state) => [

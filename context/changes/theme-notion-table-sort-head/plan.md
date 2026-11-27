@@ -41,5 +41,5 @@
 - Released as a minor: new exports, no change to existing ones.
 
 ## Progress
-- [ ] Phase 1: TableSortHead and sortRows (TDD)
+- [x] Phase 1: TableSortHead and sortRows (TDD) (red first: `npx vitest run themes/theme-notion/tests/notion/TableSortHead.test.tsx` failed with no `messages.tableSortHead`; after: `npx vitest run themes/theme-notion` 75 files, 1498 tests passed; fixture by `UPDATE_FIXTURES=1`; `gallery.png` baselines regenerated in Chromium 1243 (232 visual tests passed, axe clean); Chromium check of the gallery case in light and dark: labels line up with the cells, 28 px buttons, a muted up-down chevron on the unsorted column, a down chevron on the right-aligned sorted one, `aria-sort` only there; typecheck, ESLint, language gate and the package build pass)
 - [ ] Phase 2: Design System artifact
