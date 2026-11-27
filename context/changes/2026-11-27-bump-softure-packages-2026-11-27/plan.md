@@ -15,4 +15,8 @@ One phase: install `@softure-ai/skills` 0.41.2, run the installer, regenerate `c
   the related tests and build pass.
 
 ## Progress
-- [ ] Phase 1
+- [x] Phase 1 (2038f6c): skills 0.41.2 installed (manifest, lock, installed and newest on npm agree); the installer
+  left the managed block of `AGENTS.md` unchanged; `npx softure-skills state` regenerated `context/state.json`
+  (`owner_queue` empty before and after, `queued` empty); doctor exit 0. Gates: typecheck, lint, build OK;
+  `vitest run tests/repo` 34 files, 1045 tests (964 passed, 81 skipped) after installing `openssh-client` in the
+  container.
