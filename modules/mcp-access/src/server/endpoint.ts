@@ -49,6 +49,8 @@ export const MAX_MCP_REQUEST_BYTES = 1024 * 1024;
 
 /** `AuthInfo.extra` key that carries the owner's user id to the factory. */
 const USER_ID_CLAIM = "userId";
+const VIA_CLAIM = "via";
+const CLIENT_NAME_CLAIM = "clientName";
 const BEARER_PREFIX = /^Bearer[ \t]+/i;
 const NO_STORE = { "cache-control": "no-store" };
 
@@ -250,7 +252,7 @@ async function authenticate(ctx: McpAccessContext, request: Request): Promise<Au
     scopes: verified.canWrite && isWriteAllowed ? [MCP_READ_SCOPE, MCP_WRITE_SCOPE] : [MCP_READ_SCOPE],
     // AuthInfo counts seconds; Date counts milliseconds.
     expiresAt: Math.floor(verified.expiresAt.getTime() / 1000),
-    extra: { [USER_ID_CLAIM]: verified.userId },
+    extra: { [USER_ID_CLAIM]: verified.userId, [VIA_CLAIM]: verified.via, [CLIENT_NAME_CLAIM]: verified.clientName },
   };
 }
 
@@ -262,7 +264,11 @@ function readIdentity(authInfo: AuthInfo | undefined): McpServerIdentity {
     // without one would run queries with no account scope, so this refuses instead.
     throw new Error("@softure-ai/mcp-access: an MCP request reached the factory without a verified identity");
   }
-  return { userId, canWrite: authInfo.scopes.includes(MCP_WRITE_SCOPE), tokenId: authInfo.clientId };
+  const identity = { userId, canWrite: authInfo.scopes.includes(MCP_WRITE_SCOPE), tokenId: authInfo.clientId };
+  // The client is a label, not a guard: a value of the wrong shape leaves it out instead of refusing the request.
+  const via = authInfo.extra?.[VIA_CLAIM];
+  const clientName = authInfo.extra?.[CLIENT_NAME_CLAIM];
+  return (via === "oauth" || via === "token") && typeof clientName === "string" ? { ...identity, via, clientName } : identity;
 }
 
 /** A missing bucket is a setup bug: thrown, so it reaches the log by name instead of a quiet 503. */

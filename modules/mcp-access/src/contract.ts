@@ -63,7 +63,22 @@ export interface McpServerIdentity {
   readonly canWrite: boolean;
   /** The token's id, for the server's own logs. Never the token. */
   readonly tokenId: string;
+  /**
+   * How the request authenticated: `oauth` (an OAuth client's access token), `token` (a hand-issued MCP token) or
+   * `stdio` (the local stdio entry). Always set by the endpoint and the stdio entry; optional only so identities an app
+   * or another package builds itself (tests, discovery) still fit.
+   */
+  readonly via?: McpClientVia;
+  /**
+   * The calling client, for a record of who ordered a write: the OAuth client's registered name (1-60 characters, as
+   * the connected apps list shows it), the hand-issued token's name, or `"stdio"`. Read with the bearer, no extra
+   * query. Set whenever `via` is.
+   */
+  readonly clientName?: string;
 }
+
+/** How an MCP request authenticated (`McpServerIdentity.via`). */
+export type McpClientVia = "oauth" | "token" | "stdio";
 
 /** A stored token as its owner sees it. The hash never leaves the server functions. */
 export interface AccessTokenView {

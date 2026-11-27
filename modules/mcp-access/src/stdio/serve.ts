@@ -74,7 +74,7 @@ export async function serveMcpStdio(options: ServeMcpStdioOptions): Promise<McpS
 
   // The writes switch is read once, at start: a stdio server serves one local session.
   const canWrite = (options.allowWrites ?? false) && (await isWritingEnabled({ db: database.handle.db, clock: systemClock, config }));
-  const identity: McpServerIdentity = { userId, canWrite, tokenId: STDIO_TOKEN_ID };
+  const identity: McpServerIdentity = { userId, canWrite, tokenId: STDIO_TOKEN_ID, via: "stdio", clientName: STDIO_TOKEN_ID };
   let closed = false;
   const closeDatabase = async () => {
     if (closed) return;

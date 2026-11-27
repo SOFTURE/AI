@@ -13,7 +13,11 @@ limit check made race-free.
   each token. A token is `sftmcp_` and 32 random bytes; the plaintext is shown once and stored nowhere.
 - `POST /api/mcp`: identifies the client and counts the request (bucket `mcp`), verifies the
   `Authorization: Bearer` token, then hands the request to a **fresh server from the app's factory**
-  with `{ userId, canWrite, tokenId }`. Unknown, revoked, expired and malformed tokens all get the
+  with `{ userId, canWrite, tokenId, via, clientName }`: `via` is `oauth` (an OAuth client's access token) or
+  `token` (a hand-issued token), `clientName` the OAuth client's registered name (at most 60 characters, as the
+  connected apps list shows it) or the token's name, both read with the bearer, no extra query. The stdio entry
+  passes `via: "stdio"` and `clientName: "stdio"`. Both fields are optional in the type, so identities an app builds
+  itself (tests, agent-ready discovery) still fit. Unknown, revoked, expired and malformed tokens all get the
   same `401 invalid_token` with a `WWW-Authenticate: Bearer` challenge. The challenge's `scope` is
   `mcp:read mcp:write` while the app allows writes and `mcp:read` otherwise, so an OAuth client asks
   for what it may get.
@@ -410,12 +414,12 @@ request in the factory. The hook runs after each call with one record: `tool` (t
 `tokenId`, `clientName`, `argumentNames` (names only, never values), `outcome` (`succeeded` with `itemCount` for an
 array value, `failed` with the result's error code, `thrown` with the `safeError` code, `null` for a
 `PublicError`), `startedAt` and `durationMs`. The hook is awaited; when it throws, the failure is logged by kind and
-the assistant gets the same answer. `findTokenClientName(ctx, tokenId)` gives the token's name (`null` for the stdio
-id or a token that is gone).
+the assistant gets the same answer. The identity's `clientName` names the client; `findTokenClientName(ctx, tokenId)`
+gives the same name by a query (`null` for the stdio id or a token that is gone).
 
 ```ts
-export async function createServer({ userId, canWrite, tokenId }: McpServerIdentity) {
-  const caller = { tokenId, clientName: await findTokenClientName(ctx, tokenId) };
+export async function createServer({ userId, canWrite, tokenId, clientName }: McpServerIdentity) {
+  const caller = { tokenId, clientName: clientName ?? null };
   const onToolCall = (record: ToolCallRecord) => saveToolCall(db, userId, record);
   server.registerTool("list_orders", { inputSchema: { status: z.string() } }, (args) =>
     withToolErrors(() => findOrders(db, userId, args), { label: "list_orders", caller, args, onToolCall }),
