@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
-## Unreleased
+## 0.7.10
 
 - **The identity names the calling client:** `McpServerIdentity` carries `via` (`"oauth"` for an OAuth client's access
   token, `"token"` for a hand-issued token, `"stdio"` for the stdio entry) and `clientName` (the OAuth client's
