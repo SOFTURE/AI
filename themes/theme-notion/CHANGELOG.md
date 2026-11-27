@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.42.0
 
 - `TableSortHead`, `sortRows` and `nextSortDirection` (#1528): a sortable column header for `Table`, a ghost button
   with the column's name and a chevron for its direction (muted up-down while unsorted), `aria-sort` on the sorted
