@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-table-view-settings
 title: "theme-notion: a table's view settings to hide and show columns (issue #1529)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1529
 branch: claude/project-thread-oje0bu
 created: 2026-11-27
 updated: 2026-11-27
+archived_at: 2026-11-27
 ---
 
 ## Intent
@@ -33,3 +34,11 @@ adopting app with a wide table composes its own trigger, list, toggles and bulk 
 
 ## Notes
 - frame skipped: the issue names the gap, the API and the parts to reuse.
+
+## Done
+`TableViewSettings`: a table's Notion-style "Properties" menu, a ghost sliders button opening a popover with a switch
+per column, the shown columns first under "Hide all", the hidden ones under "Show all", `canHide: false` kept on and
+disabled, an optional drag (and keyboard) reorder of the shown columns with hidden ones kept in their slots; plus
+`applyColumnVisibility` and `useTableColumns` (a caller-supplied store loaded after mount). Tests, gallery cases,
+fixture, visual baselines, README, CHANGELOG `Unreleased`, the Design System artifact (v113-114). An adopting app
+drops its own column menu.
