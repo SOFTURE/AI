@@ -81,7 +81,7 @@ import { CircleCheck } from "lucide-react";
 **Copy.** The components' built-in texts are accessible names in English (`notionMessages.en`). Pass the app's own
 wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHeader crumbsLabel`,
 `DialogContent closeLabel`, `DialogFooter closeLabel` (the `showCloseButton` button's text), `SheetContent closeLabel`, `SidePanel closeLabel`, `AsidePanelToggle showLabel hideLabel`,
-`AsidePanel widenLabel narrowLabel closeLabel`, `AsidePanelSidebarOpener label`, `Steps stateLabels`, `CopyButton label copiedLabel`, `HelpTooltip label`,
+`AsidePanel widenLabel narrowLabel closeLabel`, `AsidePanelSidebarOpener label`, `Steps stateLabels`, `CopyButton label copiedLabel`, `HelpTooltip label`, `TableSortHead label`,
 `TableViewSettings label messages`, `DatePicker messages`, `DateTimePicker messages`,
 `Sidebar mobileTitle mobileDescription`, `SidebarTrigger label`, `SidebarRail label`, `Spinner aria-label`,
 `CommandDialog title description` (`title` also names its search field), `Command label` (the search field's
@@ -156,6 +156,8 @@ list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filte
 stages with a state, below), `Timeline` (dated entries on a vertical rail, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below),
 `CopyButton` (one value to the clipboard, with a moment of "Copied", below),
 `HelpTooltip` (a field's "?" hint that opens on hover, focus, click and tap, below),
+`TableSortHead` with `sortRows` and `nextSortDirection` (a table column header that sorts its column, with
+`aria-sort` and a direction chevron, below),
 `TableViewSettings` (a table's columns shown, hidden and reordered from a Notion-style "Properties" menu, with
 `applyColumnVisibility` and `useTableColumns`, below),
 `DatePicker` and `DateTimePicker` (a day, or a local date and time, picked from the theme's calendar, below),
@@ -756,6 +758,43 @@ client component. `data-slot="help-tooltip-trigger"` on the button, `data-slot="
   <HelpTooltip label="Help for Email" hintId="email-hint">The address we send receipts to.</HelpTooltip>
 </div>
 <Input id="email" type="email" aria-describedby="email-hint" />
+```
+
+**`TableSortHead`.** A sortable column's header for `Table`: a `TableHead` whose content is a ghost button with the
+column's name and a chevron for its `direction` (up for `ascending`, down for `descending`, a muted up-down one for
+`none`). `aria-sort` is set on the sorted `<th>` only, as the WAI-ARIA sortable table pattern asks. A press calls
+`onSortChange` with the next direction: none → descending → ascending → none, or with `cycle="two-state"` descending
+⇄ ascending, never back to none (`nextSortDirection(direction, cycle)` gives the same answer). The button is the tab
+stop, Enter and Space press it. Hidden text inside the button says what a press does ("Sort descending", "Sort
+ascending", "Remove sorting" by default); `label` replaces it with the app's copy, while the visible column name
+stays the start of the button's name. `align="end"` fits a right-aligned column of amounts; other `<th>` props pass
+through, `buttonClassName` reaches the button. The sorting itself stays in the app, on the client or the server;
+`sortRows(rows, key, direction, compare?)` sorts an array in memory into a new one, stable in both directions (equal
+rows keep their order), empty values last, numbers, dates and booleans by value and strings with numeric,
+case-insensitive collation; `key` is a property name or an accessor. A client component.
+`data-slot="table-sort-head"` with `data-sort` on the `<th>`, `data-slot="table-sort-button"` on the button,
+`data-slot="table-sort-label"` on the hidden text.
+
+```tsx
+const [sort, setSort] = useState<{ key: "number" | "amount"; direction: SortDirection }>({ key: "amount", direction: "descending" });
+const directionOf = (key: typeof sort.key): SortDirection => (sort.key === key ? sort.direction : "none");
+const rows = sortRows(invoices, sort.key, sort.direction);
+
+<Table>
+  <TableHeader>
+    <TableRow>
+      <TableSortHead direction={directionOf("number")} onSortChange={(direction) => setSort({ key: "number", direction })}>
+        {messages.number}
+      </TableSortHead>
+      <TableSortHead align="end" direction={directionOf("amount")}
+        onSortChange={(direction) => setSort({ key: "amount", direction })}
+        label={messages.sortLabel[nextSortDirection(directionOf("amount"))]}>
+        {messages.amount}
+      </TableSortHead>
+    </TableRow>
+  </TableHeader>
+  <TableBody>{rows.map((invoice) => <InvoiceRow key={invoice.id} invoice={invoice} />)}</TableBody>
+</Table>
 ```
 
 **`TableViewSettings`, `applyColumnVisibility`, `useTableColumns`.** A table's view settings, as Notion's

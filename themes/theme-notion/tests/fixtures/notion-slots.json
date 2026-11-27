@@ -2142,6 +2142,28 @@
     ["table-cell","p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]"],
     ["table-cell","p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px] text-right"]
   ],
+  "TableSortHead": [
+    ["table-container","relative w-full overflow-x-auto"],
+    ["table","caption-bottom text-sm w-full max-w-[32rem]"],
+    ["table-header","[&_tr]:border-b"],
+    ["table-row","border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted"],
+    ["table-sort-head","h-[34px] px-2 text-left align-middle font-normal whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]"],
+    ["table-sort-button","inline-flex shrink-0 items-center justify-center whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 text-muted-foreground hover:bg-accent hover:text-foreground gap-1 rounded-md px-2 has-[>svg:first-child]:pl-1.5 has-[>svg:last-child]:pr-1.5 h-7 text-sm font-normal -ml-2"],
+    ["table-sort-label","sr-only"],
+    ["table-head","h-[34px] px-2 text-left align-middle font-normal whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]"],
+    ["table-sort-head","h-[34px] px-2 align-middle font-normal whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px] text-right"],
+    ["table-sort-button","inline-flex shrink-0 items-center justify-center whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 hover:bg-accent hover:text-foreground gap-1 rounded-md px-2 has-[>svg:first-child]:pl-1.5 has-[>svg:last-child]:pr-1.5 h-7 text-sm font-normal -mr-2 text-foreground"],
+    ["table-sort-label","sr-only"],
+    ["table-body",""],
+    ["table-row","border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted"],
+    ["table-cell","p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]"],
+    ["table-cell","p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]"],
+    ["table-cell","p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px] text-right"],
+    ["table-row","border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted"],
+    ["table-cell","p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]"],
+    ["table-cell","p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]"],
+    ["table-cell","p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px] text-right"]
+  ],
   "TableViewSettings": [
     ["table-view-settings-trigger","inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 hover:bg-accent hover:text-foreground size-7 text-muted-foreground max-md:size-touch-target"],
     ["table-container","relative w-full overflow-x-auto"],

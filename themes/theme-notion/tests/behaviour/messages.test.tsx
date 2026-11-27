@@ -19,6 +19,8 @@ import {
   FileInput,
   FilterChipAdd,
   HelpTooltip,
+  TableSortHead,
+  type SortDirection,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -184,6 +186,31 @@ const CASES: Readonly<Record<string, MessageCase>> = {
     render: (text) => <HelpTooltip {...(text === undefined ? {} : { label: text })}>Hint</HelpTooltip>,
     read: attributeOf('[data-slot="help-tooltip-trigger"]', "aria-label"),
   },
+  ...Object.fromEntries(
+    (
+      [
+        ["descending", "none"],
+        ["ascending", "descending"],
+        ["none", "ascending"],
+      ] as const satisfies readonly (readonly [SortDirection, SortDirection])[]
+    ).map(([next, direction]) => [
+      `tableSortHead.${next}`,
+      {
+        render: (text: string | undefined) => (
+          <table>
+            <thead>
+              <tr>
+                <TableSortHead direction={direction} onSortChange={() => undefined} {...(text === undefined ? {} : { label: text })}>
+                  Amount
+                </TableSortHead>
+              </tr>
+            </thead>
+          </table>
+        ),
+        read: textOf('[data-slot="table-sort-label"]'),
+      },
+    ]),
+  ),
   // The view settings' panel, open, with a shown and a hidden column, so every heading and button renders.
   ...Object.fromEntries(
     (

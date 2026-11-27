@@ -250,6 +250,7 @@ import {
   DateTimePicker,
   HelpTooltip,
   Prose,
+  TableSortHead,
   TableViewSettings,
   type TableViewColumn,
 } from "../../src/index.js";
@@ -1635,6 +1636,38 @@ const NOTION_CASES: readonly GalleryCase[] = [
           timeZone="Europe/Warsaw"
         />
       </div>
+    ),
+  },
+  {
+    name: "TableSortHead",
+    component: "TableSortHead",
+    root: '[data-slot="table"]',
+    render: () => (
+      <Table className="w-full max-w-[32rem]">
+        <TableHeader>
+          <TableRow>
+            <TableSortHead direction="none" onSortChange={() => undefined}>
+              Number
+            </TableSortHead>
+            <TableHead>Status</TableHead>
+            <TableSortHead direction="descending" onSortChange={() => undefined} align="end">
+              Amount
+            </TableSortHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow>
+            <TableCell>INV-001</TableCell>
+            <TableCell>Paid</TableCell>
+            <TableCell className="text-right">1,200</TableCell>
+          </TableRow>
+          <TableRow>
+            <TableCell>INV-002</TableCell>
+            <TableCell>Due</TableCell>
+            <TableCell className="text-right">300</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
     ),
   },
   {

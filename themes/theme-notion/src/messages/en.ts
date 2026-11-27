@@ -81,6 +81,7 @@ export const en = {
     offline: "Available offline",
     open: "Open",
   },
+  tableSortHead: { descending: "Sort descending", ascending: "Sort ascending", none: "Remove sorting" },
   steps: { done: "Done", current: "Current", todo: "To do", failed: "Failed" },
   command: { title: "Command Palette", description: "Search for a command to run..." },
 } as const;

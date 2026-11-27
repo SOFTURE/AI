@@ -157,6 +157,8 @@ export {
 export { Status, type StatusProps } from "./notion/Status.js";
 export { Steps, type StepItem, type StepState, type StepsLayout, type StepsProps } from "./notion/Steps.js";
 export { TabBar, type TabBarItem, type TabBarProps } from "./notion/TabBar.js";
+export { nextSortDirection, sortRows, type SortCycle, type SortDirection } from "./notion/sort-rows.js";
+export { TableSortHead, type TableSortHeadProps } from "./notion/TableSortHead.js";
 export { Timeline, type TimelineItem, type TimelineItemFold, type TimelineItemSize, type TimelineLine, type TimelineProps } from "./notion/Timeline.js";
 export { TopLoadingBar, type TopLoadingBarProps } from "./notion/TopLoadingBar.js";
 export { DOCUMENT_ZOOM_STEPS, getDocumentKind, type DocumentKind } from "./notion/document-kind.js";
