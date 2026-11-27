@@ -32,6 +32,15 @@ export const en = {
   sidePanel: { close: "Close" },
   sidebar: { mobileTitle: "Sidebar", mobileDescription: "Displays the mobile sidebar.", toggle: "Toggle Sidebar" },
   spinner: { label: "Loading" },
+  tableViewSettings: {
+    trigger: "View settings",
+    title: "Properties",
+    shown: "Shown in table",
+    hidden: "Hidden in table",
+    showAll: "Show all",
+    hideAll: "Hide all",
+    reorder: "Column order",
+  },
   sortable: {
     instructions:
       "To pick up a row, press Space or Enter. Use the arrow keys to move it, then press Space or Enter to drop it, or Escape to cancel.",

@@ -82,7 +82,7 @@ import { CircleCheck } from "lucide-react";
 wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHeader crumbsLabel`,
 `DialogContent closeLabel`, `DialogFooter closeLabel` (the `showCloseButton` button's text), `SheetContent closeLabel`, `SidePanel closeLabel`, `AsidePanelToggle showLabel hideLabel`,
 `AsidePanel widenLabel narrowLabel closeLabel`, `AsidePanelSidebarOpener label`, `Steps stateLabels`, `CopyButton label copiedLabel`, `HelpTooltip label`, `TableSortHead label`,
-`DatePicker messages`, `DateTimePicker messages`,
+`TableViewSettings label messages`, `DatePicker messages`, `DateTimePicker messages`,
 `Sidebar mobileTitle mobileDescription`, `SidebarTrigger label`, `SidebarRail label`, `Spinner aria-label`,
 `CommandDialog title description` (`title` also names its search field), `Command label` (the search field's
 name outside a `CommandDialog`; without it the field has none), `SortableList instructions announcements`, `SortableHandle label`.
@@ -158,6 +158,8 @@ stages with a state, below), `Timeline` (dated entries on a vertical rail, below
 `HelpTooltip` (a field's "?" hint that opens on hover, focus, click and tap, below),
 `TableSortHead` with `sortRows` and `nextSortDirection` (a table column header that sorts its column, with
 `aria-sort` and a direction chevron, below),
+`TableViewSettings` (a table's columns shown, hidden and reordered from a Notion-style "Properties" menu, with
+`applyColumnVisibility` and `useTableColumns`, below),
 `DatePicker` and `DateTimePicker` (a day, or a local date and time, picked from the theme's calendar, below),
 `Prose` (the text styles of a long read the app does not draw itself, such as Markdown rendered to HTML, below),
 `SortableList`, `SortableItem`, `SortableHandle` and `SortableActivator` (rows reordered by dragging, below),
@@ -793,6 +795,56 @@ const rows = sortRows(invoices, sort.key, sort.direction);
   </TableHeader>
   <TableBody>{rows.map((invoice) => <InvoiceRow key={invoice.id} invoice={invoice} />)}</TableBody>
 </Table>
+```
+
+**`TableViewSettings`, `applyColumnVisibility`, `useTableColumns`.** A table's view settings, as Notion's
+"Properties" menu: a ghost icon button (Lucide's sliders, `label` names it, "View settings" by default) for the
+table's toolbar opens a panel with a heading, the shown columns under "Shown in table" with "Hide all", and the hidden
+ones under "Hidden in table" with "Show all" (a group only when it has columns, a bulk button only when it changes
+something). Each row is the column's name and a `Switch` named by it; a click anywhere on the row toggles it, and below
+`md` the row and the button are 44 px touch targets. `columns` is `{ id, label, isVisible, canHide? }[]` in the table's
+order; `onChange(nextVisibleIds)` gets the ids to show in that order. A column with `canHide: false` (the selection
+checkbox, the title) keeps its switch on and disabled and stays through "Hide all". With `canReorder` the shown
+columns get a drag handle (`SortableList`, so Space, the arrow keys and Space move one by keyboard), and
+`onReorder(nextOrder)` gets every id: the shown ones in their new order, the hidden ones in their slots. Tab moves
+between the switches, Escape closes the panel and returns focus to the button. `messages` replaces the panel's copy
+(`trigger`, `title`, `shown`, `hidden`, `showAll`, `hideAll`, `reorder`); `align`, `open`, `defaultOpen` and
+`onOpenChange` as on `Popover`.
+
+`applyColumnVisibility(definitions, visibleIds, order?)` returns the definitions to render: the visible ones, in
+`order` when given (ids it does not name after, in their own order). `useTableColumns({ columns, store })` keeps the
+state for one table: `columns` are `{ id, label, canHide?, isVisibleByDefault? }`, and `store` is the app's choice
+(local storage, the URL, its settings API) as `{ load(): { visible, order } | null, save(state) }`. It renders the
+defaults first and calls `load` once after mount, so a store reading browser storage never breaks hydration; stored ids
+no longer defined are dropped, new columns take `isVisibleByDefault` (`true` by default), and `save` gets every change.
+It returns `columns`, `onChange`- and `onReorder`-ready `setVisibleIds` and `setOrder`, `visibleIds`, `order` and
+`reset`. Client components. `data-slot="table-view-settings-trigger"` on the button,
+`data-slot="table-view-settings"` on the panel, `data-group="shown" | "hidden"` on its groups, `data-column` on every
+row.
+
+```tsx
+const COLUMNS = [
+  { id: "number", label: t("invoices.number"), canHide: false },
+  { id: "client", label: t("invoices.client") },
+  { id: "notes", label: t("invoices.notes"), isVisibleByDefault: false },
+];
+
+const view = useTableColumns({
+  columns: COLUMNS,
+  store: {
+    load: () => readJson(localStorage.getItem("invoices.columns")),
+    save: (state) => localStorage.setItem("invoices.columns", JSON.stringify(state)),
+  },
+});
+const shown = applyColumnVisibility(DEFINITIONS, view.visibleIds, view.order);
+
+<TableViewSettings
+  label={t("invoices.viewSettings")}
+  columns={view.columns}
+  onChange={view.setVisibleIds}
+  canReorder
+  onReorder={view.setOrder}
+/>
 ```
 
 **`DatePicker`, `DateTimePicker`.** A day, or a local date and time, picked in the theme's look instead of the

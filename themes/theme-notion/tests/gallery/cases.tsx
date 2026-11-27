@@ -251,7 +251,17 @@ import {
   HelpTooltip,
   Prose,
   TableSortHead,
+  TableViewSettings,
+  type TableViewColumn,
 } from "../../src/index.js";
+
+// The columns of the gallery's invoice table, as an app's view settings list them.
+const GALLERY_TABLE_COLUMNS: readonly TableViewColumn[] = [
+  { id: "number", label: "Number", isVisible: true, canHide: false },
+  { id: "amount", label: "Amount", isVisible: true },
+  { id: "client", label: "Client", isVisible: false },
+  { id: "due", label: "Due date", isVisible: false },
+];
 
 // The install bar's copy, as `pwaMessages.en.install` in `@softure-ai/pwa` has it.
 const INSTALL_COPY = {
@@ -1552,6 +1562,44 @@ const NOTION_CASES: readonly GalleryCase[] = [
           </HelpTooltip>
         </div>
         <Input id="gallery-help-email" type="email" aria-describedby="gallery-help-email-hint" defaultValue="ada@example.test" />
+      </div>
+    ),
+  },
+  {
+    name: "TableViewSettings",
+    component: "TableViewSettings",
+    root: '[data-slot="table-view-settings-trigger"]',
+    render: () => (
+      <div className="flex w-full max-w-[32rem] flex-col gap-1">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium">Invoices</span>
+          <TableViewSettings label="Invoice table settings" columns={GALLERY_TABLE_COLUMNS} onChange={() => undefined} />
+        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Number</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow>
+              <TableCell>INV-001</TableCell>
+              <TableCell className="text-right">1,200</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+    ),
+  },
+  {
+    name: "TableViewSettingsOpen",
+    component: "TableViewSettings",
+    root: '[data-slot="table-view-settings"]',
+    isIsolated: true,
+    render: () => (
+      <div className="flex w-72 justify-end">
+        <TableViewSettings defaultOpen canReorder columns={GALLERY_TABLE_COLUMNS} onChange={() => undefined} onReorder={() => undefined} />
       </div>
     ),
   },

@@ -12,6 +12,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `notionMessages.en.tableSortHead`), a none → descending → ascending → none cycle or a two-state one, and
   `align="end"` for a right-aligned column. `sortRows` sorts rows in memory, stable in both directions, empty values
   last. An app drops its own header button, indicator and `aria-sort`.
+- `TableViewSettings` (#1529): a table's view settings, as Notion's "Properties" menu. A ghost icon button for the
+  table's toolbar opens a panel with one switch per column, the shown columns first under "Hide all", the hidden
+  ones under "Show all"; `canHide: false` keeps a column on with its switch disabled; `canReorder` adds drag handles
+  (and keyboard moves) to the shown columns. `applyColumnVisibility` picks and orders the column definitions, and
+  `useTableColumns` keeps the visibility and order in the app's own store. An app's own column menu can go.
 
 ## 0.41.1
 
