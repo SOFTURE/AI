@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-table-sort-head
 title: "theme-notion: a sortable table column header with aria-sort and a sort indicator (issue #1528)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 1528
 branch: claude/project-thread-cnkgw2
 created: 2026-11-27
 updated: 2026-11-27
+archived_at: 2026-11-27
 ---
 
 ## Intent
@@ -33,3 +34,11 @@ the accessible markup.
 
 ## Notes
 - frame skipped: the issue names the gap and the proposed component and helper.
+- Archived 2026-11-27: `TableSortHead` and the stable `sortRows` ship in theme-notion with tests, gallery, README and the Design System artifact (v111-112).
+
+## Done
+`TableSortHead`: a sortable column header for `Table` with a ghost button, a direction chevron (muted while unsorted),
+`aria-sort` on the sorted `<th>` only, hidden text naming what a press does (`label`), a three- or two-state cycle and
+`align="end"`; `nextSortDirection` and a stable `sortRows` (empty values last) in a module without `"use client"`.
+Tests, gallery case, fixture, visual baselines, README, CHANGELOG `Unreleased`, the Design System artifact (v111-112).
+An app drops its own header button, indicator and `aria-sort`.
